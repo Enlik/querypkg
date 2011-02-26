@@ -15,7 +15,8 @@ use LWP::UserAgent;
 use URI::Escape;
 use JSON::XS;
 
-# API options: $o_var = ( option => { API => 'API key', desc => 'description' } )
+# options (mostly API options):
+# $o_var = ( option => { API => 'API key', desc => 'description' } )
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (	amd64 => { API => 'amd64', desc => 'amd64' },
 				x86 => { API => 'x86', desc => 'x86' } );
@@ -28,19 +29,25 @@ my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				vote => { API => 'vote', desc => 'by votes' },
 				downloads => { API => 'downloads', desc => 'by downloads' },
 				size => { API => 'alphabet', desc => 'by size' } );
-
+my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
+				limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
+				p => { API => 'portage', desc => 'Portage' } );
+				# since number of results is limited, I think "all" is useless (and see "note" below)
+				#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' } );
+				
 my %h_arch = @h_arch;
 my %h_type = @h_type;
 my %h_order = @h_order;
+my %h_repo = @h_repo;
 
 # default values
 my $s_arch = 'amd64';
 my $s_type = 'pkg';
 my $s_order = 'alph';
+my $s_repo = 'sl';
 
 # another values
-my $branch = "5";
-my $repo = "sabayonlinux.org";
+my $branch = "5"; # not used on Portage search
 my $use_colour = 1;
 
 # set options and the search $key
@@ -62,11 +69,13 @@ sub make_URI {
 	my $key = shift or die "no arg!";
 	my $key_ok = uri_escape $key;
 	my $URI = "http://packages.sabayon.org/search?q=$key_ok";
-	$URI .= "&a=" . $h_arch{$s_arch}->{API};
+	if (not $s_repo eq "p" and not $s_repo eq "all") {
+		$URI .= "&a=" . $h_arch{$s_arch}->{API};
+		$URI .= "&b=$branch";
+	}
 	$URI .= "&t=" . $h_type{$s_type}->{API};
 	# this seems not to work on the server side
 	($URI .= "&o=" . $h_order{$s_order}->{API}) unless $s_order eq "size";
-	$URI .= "&b=$branch";
 	$URI .= "&render=json";
 	$URI;
 }
@@ -76,8 +85,8 @@ sub make_URI {
 sub get_data {
 	my $URI = shift or return;
 	my $str;
-	# my $_file = 'd'; # local file with data, set for *debugging* purposes
-	my $_file;
+	my $_file = '/tmp/s'; # local file with data, set for *debugging* purposes
+	undef $_file;
 	if (defined $_file) {
 		say str_col("green", ">>  "), str_col("red", "@@ "),
 			str_col("green", "Reading data from file...");
@@ -132,26 +141,47 @@ sub parse_and_print {
 		exit 1;
 	}
 	
+	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
+	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
+	my $repo_pref_p = ($s_repo eq "p" or $s_repo eq "all") ? 1 : 0;
+	
 	for my $el (sort {comp($a, $b)} @{$j}) {
-		# say "→",$el->{is_source_repo},"|",$el->{branch},"←";
-		next unless $el->{branch} == $branch;
-		# as for now only binary packages are supported
-		# filtering out results with branch != 5 seems to do the same, but let's
-		# leave it here, too
-		next if $el->{is_source_repo};
-		# for now let's omit Limbo, too
-		next unless $el->{repository_id} eq $repo;
+		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
+		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
+		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
+		
+		if ($repo_cur_sl) {
+			next unless $repo_pref_sl;
+		}
+		elsif ($repo_cur_limbo) {
+			next unless $repo_pref_limbo;
+		}
+		elsif ($repo_cur_p) {
+			next unless $repo_pref_p;
+		}
+		
+		# note: if "all" is supported, filter out different arch results
+		# for Sabayon packages, too
+		
+		# if Sabayon repository, filter out results with different branch
+		if ($repo_cur_sl or $repo_cur_limbo) {
+			next unless $el->{branch} == $branch;
+			# let's leave this here, too
+			next if $el->{is_source_repo};
+		}
+
 		_pnt_pkg($el->{atom});
 		_pnt_prop("Arch:", "bold blue", $el->{arch});
-		_pnt_prop("Revision:", "bold blue", $el->{revision});
+		_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
 		_pnt_prop("Slot:", "bold blue", $el->{slot});
-		_pnt_prop("Size:", "bold blue", $el->{size});
-		_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads});
-		_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote});
-		_pnt_prop("spm_repo:", "bold blue", ($el->{spm_repo} // "(null)"));
+		_pnt_prop("Size:", "bold blue", $el->{size}) unless $repo_cur_p;
+		_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
+		_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
+		_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
 		_pnt_prop("License:", "bold blue", $el->{license});
 		_pnt_prop("Description:", "magenta", $el->{description});
-		# _pnt_prop("repository_id:", "bold blue", $el->{repository_id});
+		_pnt_prop("Last change:", "bold blue", $el->{change} // "N/A");
+		_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
 	}
 	
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
@@ -175,18 +205,19 @@ sub parse_cmdline {
 	while (my $arg = shift) {
 		given ($arg) {
 			when(["--help", "-h"]) {
-					my ($arch_opts, $type_opts, $order_opts);
+					my ($arch_opts, $type_opts, $order_opts, $repo_opts);
 					$arch_opts = join "|",_get_opts(@h_arch);
 					$type_opts = join "|",_get_opts(@h_type);
 					$order_opts = join "|",_get_opts(@h_order);
+					$repo_opts = join "|",_get_opts(@h_repo);
 				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
 					"For interactive use run this script without any parameters.\n" ,
 					"Usage:\n" ,
 					"\t[--arch $arch_opts] [--order $order_opts]\n" ,
-					"\t[--type $type_opts] keyword\n" ,
+					"\t[--type $type_opts] [--repo $repo_opts]  keyword\n" ,
 					"\tadditional options: --color - enable colorized output (default), " ,
 					"--nocolor - disable colorized output\n",
-					"Default values: $s_arch, $s_order, $s_type.\n",
+					"Default values: $s_arch, $s_order, $s_type, $s_repo.\n",
 					"example usage: $0 --arch x86 --order size pidgin\n" ,
 					"also this is correct: $0 pidgin --arch x86 --order size";
 				say "\n--type:";
@@ -196,6 +227,10 @@ sub parse_cmdline {
 				say "\n--order:";
 				for (_get_opts(@h_order)) {
 					say "$_\t\t", $h_order{$_}->{desc};
+				}
+				say "\n--repo:";
+				for (_get_opts(@h_repo)) {
+					say "$_\t\t", $h_repo{$_}->{desc};
 				}
 				exit 0;
 			}
@@ -217,7 +252,7 @@ sub parse_cmdline {
 				}
 				else {
 					say "Wrong parameters after --order.\n" ,
-						"Default: $s_order.";
+						"Currently selected is $s_order.";
 					$params_ok = 0;
 				}
 			}
@@ -228,7 +263,18 @@ sub parse_cmdline {
 				}
 				else {
 					say "Wrong parameters after --type.\n" ,
-						"Default: $s_type.";
+						"Currently selected is $s_type.";
+					$params_ok = 0;
+				}
+			}
+			when ("--repo") {
+				$arg = shift;
+				if($arg ~~ [ _get_opts(@h_repo) ]) {
+					$s_repo = $arg;
+				}
+				else {
+					say "Wrong parameters after --repo.\n" ,
+						"Currently selected is $s_repo.";
 					$params_ok = 0;
 				}
 			}
@@ -298,7 +344,7 @@ sub _pnt_set_opt {
 	# populate keys, in order
 	my @keys = ();
 	for (@$h_r) {
-		push @keys, $_ unless ref $_;
+		push @keys, $_ unless ref $_; # push only strings - options
 	}
 
 	my $l = 'a';
@@ -340,6 +386,7 @@ sub interactive_ui {
 		say "\n[1] arch: $s_arch (x86, amd64)\n",
 			"[2] search type: $s_type (", $h_type{$s_type}->{desc}, ")\n",
 			"[3] order: $s_order (", $h_order{$s_order}->{desc}, ")\n",
+			"[4] repository: " . $h_repo{$s_repo}->{desc} . "\n",
 			"[c] color: " . ($use_colour ? "enabled" : "disabled") . "\n",
 			"[q] quit\n",
 			"(any other) continue";
@@ -358,6 +405,10 @@ sub interactive_ui {
 			when ("3") {
 				say "select sort order:";
 				_pnt_set_opt(\$s_order, \@h_order, 1);
+			}
+			when ("4") {
+				say "select repository:";
+				_pnt_set_opt(\$s_repo, \@h_repo, 0);
 			}
 			when ("c") {
 				$use_colour = !$use_colour;
