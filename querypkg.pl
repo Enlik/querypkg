@@ -65,7 +65,7 @@ sub make_URI {
 	my $URI = "http://packages.sabayon.org/search?q=$key_ok";
 	$URI .= "&a=" . $h_arch{$s_arch}->{API};
 	$URI .= "&t=" . $h_type{$s_type}->{API};
-	# this seems not to work
+	# this seems not to work on the server side
 	($URI .= "&o=" . $h_order{$s_order}->{API}) unless ($order_by_size);
 	$URI .= "&b=$branch";
 	$URI .= "&render=json";
@@ -169,51 +169,6 @@ sub _get_opts {
 		push @keys, $x unless ref $x;
 	}
 	@keys;
-}
-
-sub _pnt_opts {
-	my $s_r = shift or die "no arg!"; # ref to variable like $s_arch
-	my $h_r = shift or die "no arg!"; # ref to variable like @h_arch (array!)
-	my $print_opt = shift; # print description with option, too?
-	my $s_tmp = $$s_r;
-	my %h_tmp = @$h_r;
-
-	# populate keys, in order
-	my @keys = ();
-	for (@$h_r) {
-		push @keys, $_ unless ref $_;
-	}
-
-	my @opts;
-	my @help;
-
-	my $l;
-	for my $opt (@keys) {
-		push @opts, $opt;
-		if ($print_opt) {
-			say "[$l] $opt (", $h_tmp{$opt}->{desc}, ")";
-		}
-		else {
-			say "[$l] ", $h_tmp{$opt}->{desc};
-		}
-	}
-
-	my $resp = <STDIN>;
-	chomp $resp;
-	if ($resp lt 'a' or $resp ge $l) {
-		# do nothing
-	}
-	else {
-		$$s_r = $s_tmp = $keys[ord ($resp) - ord ('a')];
-	}
-
-	if ($print_opt) {
-		say "selected: $s_tmp (", $h_tmp{$s_tmp}->{desc}, ")";
-	}
-	else {
-		say "selected: ", $h_tmp{$s_tmp}->{desc};
-	}
-	$s_tmp;
 }
 
 sub parse_cmdline {
@@ -362,7 +317,7 @@ sub _pnt_set_opt {
 	my $resp = <STDIN>;
 	chomp $resp;
 	if ($resp lt 'a' or $resp ge $l) {
-		# do nothing
+		# do nothing if no argument/out of range
 	}
 	else {
 		$$s_r = $s_tmp = $keys[ord ($resp) - ord ('a')];
