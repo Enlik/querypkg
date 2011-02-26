@@ -41,7 +41,6 @@ my $s_order = 'alph';
 # another values
 my $branch = "5";
 my $repo = "sabayonlinux.org";
-my $order_by_size = $s_order eq 'size' ? 1 : 0;
 my $use_colour = 1;
 
 # set options and the search $key
@@ -66,7 +65,7 @@ sub make_URI {
 	$URI .= "&a=" . $h_arch{$s_arch}->{API};
 	$URI .= "&t=" . $h_type{$s_type}->{API};
 	# this seems not to work on the server side
-	($URI .= "&o=" . $h_order{$s_order}->{API}) unless ($order_by_size);
+	($URI .= "&o=" . $h_order{$s_order}->{API}) unless $s_order eq "size";
 	$URI .= "&b=$branch";
 	$URI .= "&render=json";
 	$URI;
@@ -215,7 +214,6 @@ sub parse_cmdline {
 				$arg = shift;
 				if($arg ~~ [ _get_opts(@h_order) ]) {
 					$s_order = $arg;
-					$order_by_size = $s_order eq 'size' ? 1 : 0;
 				}
 				else {
 					say "Wrong parameters after --order.\n" ,
@@ -360,7 +358,6 @@ sub interactive_ui {
 			when ("3") {
 				say "select sort order:";
 				_pnt_set_opt(\$s_order, \@h_order, 1);
-				$order_by_size = $s_order eq 'size' ? 1 : 0;
 			}
 			when ("c") {
 				$use_colour = !$use_colour;
@@ -444,16 +441,22 @@ sub comp_size {
 
 sub comp {
 	my ($a,$b) = @_;
-	if($order_by_size) {
-		comp_size ( $b->{size}, $a->{size} ); # desc
-	}
-	elsif ($s_order eq "vote") {
-		$b->{ugc}->{vote} <=> $a->{ugc}->{vote};
-	}
-	elsif ($s_order eq "downloads") {
-		$b->{ugc}->{downloads} <=> $a->{ugc}->{downloads};
-	}
-	else {
-		0;
+	given ($s_order) {
+		when ("size") {
+			return comp_size ( $b->{size}, $a->{size} ); # desc
+		}
+		when ("vote") {
+			return ($b->{ugc}->{vote} <=> $a->{ugc}->{vote});
+		}
+		when ("downloads") {
+			return ($b->{ugc}->{downloads} <=> $a->{ugc}->{downloads});
+		}
+		# apparently it is not done by the server if we search by description
+		# (at least), so let's do it here
+		when ("alph") {
+			return ($a->{atom} cmp $b->{atom});
+		}
+		# default
+		return 0;
 	}
 }
