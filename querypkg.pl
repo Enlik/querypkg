@@ -17,14 +17,16 @@ use JSON::XS;
 
 # options (mostly API options):
 # $o_var = ( option => { API => 'API key', desc => 'description' } )
+# note: those "API keys" can mean different API-related things (for example lib->{API})
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (	amd64 => { API => 'amd64', desc => 'amd64' },
 				x86 => { API => 'x86', desc => 'x86' } );
+				# "arch" if Portage selected: hard-coded in make_URI
 my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
-				match => { API => 'match', desc => 'package matching (>=app-foo/foo-1.2.3)' },
 				desc => { API => 'desc', desc => 'description' },
-				path => { API => 'file', desc => 'path' },
-				lib => { API => 'lib', desc => 'library (.so) search' } );
+				path => { API => '', desc => 'path' },
+				lib => { API => 'sop:', desc => 'package that provides a library (.so)' },
+				match => { API => 'match', desc => 'package matching' } );
 my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				vote => { API => 'vote', desc => 'by votes' },
 				downloads => { API => 'downloads', desc => 'by downloads' },
@@ -34,7 +36,7 @@ my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sab
 				p => { API => 'portage', desc => 'Portage' } );
 				# since number of results is limited, I think "all" is useless (and see "note" below)
 				#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' } );
-				
+
 my %h_arch = @h_arch;
 my %h_type = @h_type;
 my %h_order = @h_order;
@@ -68,13 +70,24 @@ exit 0;
 sub make_URI {
 	my $key = shift or die "no arg!";
 	my $key_ok = uri_escape $key;
-	my $URI = "http://packages.sabayon.org/search?q=$key_ok";
-	if (not $s_repo eq "p" and not $s_repo eq "all") {
-		$URI .= "&a=" . $h_arch{$s_arch}->{API};
-		$URI .= "&b=$branch";
+	my $URI = "http://packages.sabayon.org/search?q=";
+	if ($s_type eq "lib" or $s_type eq "path") {
+		$URI .= $h_type{$s_type}->{API} . "$key_ok";
 	}
-	$URI .= "&t=" . $h_type{$s_type}->{API};
-	# this seems not to work on the server side
+	else {
+		$URI .= $key_ok;
+		$URI .= "&t=" . $h_type{$s_type}->{API};
+	}
+
+	unless ($s_repo eq "all") {
+		if ($s_repo eq "p") {
+			$URI .= "&a=arch";
+		}
+		else {
+			$URI .= "&a=" . $h_arch{$s_arch}->{API};
+			$URI .= "&b=$branch";
+		}
+	}
 	($URI .= "&o=" . $h_order{$s_order}->{API}) unless $s_order eq "size";
 	$URI .= "&render=json";
 	$URI;
@@ -160,8 +173,9 @@ sub parse_and_print {
 			next unless $repo_pref_p;
 		}
 		
-		# note: if "all" is supported, filter out different arch results
-		# for Sabayon packages, too
+		# note: if "all" option is supported then another check should be made
+		# to remove from search results Sabayon packages that do not match
+		# selected architecture
 		
 		# if Sabayon repository, filter out results with different branch
 		if ($repo_cur_sl or $repo_cur_limbo) {
@@ -312,6 +326,10 @@ sub parse_cmdline {
 		exit 1;
 	}
 
+	unless(package_name_check_and_warn($key)) {
+		$params_ok = 0;
+	}
+	
 	if ($key =~ /^-/) {
 		say "Tip: search term $key begins with a `-' character.\n" .
 			"Maybe you wanted to give an unknown parameter and it was interpreted " ,
@@ -436,10 +454,13 @@ sub interactive_ui {
 			$key = "";
 		}
 		if (length $new_key < 3) {
-			say "Too short! Try once again or type Ctrl+C to abort.";
+			say "Too short! Try again or type Ctrl+C to abort.";
 		}
 		elsif(length $new_key > 100) {
-			say "Too long! Try once again or type Ctrl+C to abort.";
+			say "Too long! Try again or type Ctrl+C to abort.";
+		}
+		elsif (!package_name_check_and_warn($new_key)) {
+			say "Try again or type Ctrl+C to abort.";
 		}
 		else {
 			$key = $new_key;
@@ -448,7 +469,7 @@ sub interactive_ui {
 	}
 }
 
-######## UI helper ########
+######## UI helpers ########
 
 sub str_col {
 	my $col = shift or return ();
@@ -458,6 +479,26 @@ sub str_col {
 	else {
 		return @_;
 	}
+}
+
+sub package_name_check_and_warn {
+	# 1 - ok, 0 - not ok
+	my $arg = shift or return 0;
+	if ($s_type eq "path") {
+		if ($arg =~ /^\//) {
+			return 1;
+		}
+		else {
+			say "If you search by path, provide full path (starting with /).";
+			return 0;
+		}
+	}
+	if (($s_type eq "pkg" or $s_type eq "match") and $arg =~ /:/) {
+		# A colon is part if the API, so disallow its usage here...
+		say qq{The package name is invalid. It should not contain any ":" characters.};
+		return 0;
+	}
+	1;
 }
 
 ######## compare functions ########
@@ -493,6 +534,11 @@ sub comp_size {
 sub comp {
 	my ($a,$b) = @_;
 	given ($s_order) {
+		# The server does not always sort for all sort options currently,
+		# so it is handled in this script (besides its own sort option).
+		when ("alph") {
+			return ($a->{atom} cmp $b->{atom});
+		}
 		when ("size") {
 			return comp_size ( $b->{size}, $a->{size} ); # desc
 		}
@@ -501,11 +547,6 @@ sub comp {
 		}
 		when ("downloads") {
 			return ($b->{ugc}->{downloads} <=> $a->{ugc}->{downloads});
-		}
-		# apparently it is not done by the server if we search by description
-		# (at least), so let's do it here
-		when ("alph") {
-			return ($a->{atom} cmp $b->{atom});
 		}
 		# default
 		return 0;
