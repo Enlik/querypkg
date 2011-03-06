@@ -135,8 +135,10 @@ sub _pnt_prop {
 	my $desc = shift;
 	my $color = shift;
 	my $prop = shift;
-	say str_col("green",">>")," "x9, str_col("green","$desc\t"),
-			str_col($color,$prop);
+	my $len = length $desc;
+	my $pad = $len > 20 ? 20 : 20 - $len;
+	say str_col("green",">>")," "x9, str_col("green","$desc"),
+			" "x$pad, str_col($color,$prop);
 }
 
 sub parse_and_print {
