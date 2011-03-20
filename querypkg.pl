@@ -202,7 +202,7 @@ sub _pnt_prop_wrap {
 		$outtext = join $indenttext,@lines;
 	}
 
-	say str_col("green",">>")," "x9, str_col("green","Description:"),
+	say str_col("green",">>")," "x9, str_col("green",$desc),
 			" "x$pad, str_col($color,$outtext);
 }
 
