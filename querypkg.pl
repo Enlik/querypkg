@@ -109,7 +109,7 @@ sub get_data {
 		my $ua = LWP::UserAgent->new;
 		$ua->timeout(15);
 		$ua->env_proxy;
-		
+
 		say str_col("green", ">>  "), str_col("red", "@@ "),
 			str_col("green", "Please wait, downloading data...");
 		my $resp = $ua->get($URI);
@@ -141,6 +141,71 @@ sub _pnt_prop {
 			" "x$pad, str_col($color,$prop);
 }
 
+sub _pnt_prop_wrap {
+	my $desc = shift;
+	my $color = shift;
+	my $prop = shift;
+	my $len = length $desc;
+	my $WIDTH = 80;
+	my $pad = $len > 20 ? 20 : 20 - $len;
+	
+	my $textlen = length $prop;
+	# $indent = space on the beginning of a line
+	my $indent = 2 + $len + 9 + $pad;
+	my $indenttext = " " x $indent;
+	my $widthavail = $WIDTH - $indent;
+	my $outtext;
+	if ($textlen <= $widthavail) {
+		$outtext = $prop;
+	}
+	else {
+		my $line = "";
+		my @lines = ();
+		my $cur_widthavail = $widthavail;
+		for my $word (split /\s/, $prop) {
+			A_LABEL:
+			if (length $word < $cur_widthavail) {
+				# print "\n1: $word\n";
+				$line .= $word . " ";
+				$cur_widthavail -= (length($word) + 1);
+			}
+			elsif (length $word == $cur_widthavail) {
+				# print "\n2: $word\n";
+				$line .= $word . "\n";
+				push @lines, $line;
+				$line = "";
+				$cur_widthavail = $widthavail;
+			}
+			# the word length exceeds space that left
+			else {
+				# maybe it's longer than available width?
+				if (length $word > $widthavail) {
+					# print "\n3: $word\n";
+					$line .= (substr $word, 0, $cur_widthavail) . "\n";
+					push @lines, $line;
+					$line = "";
+					$word = substr $word, $cur_widthavail;
+					$cur_widthavail = $widthavail;
+					goto A_LABEL;
+				}
+				# otherwise let's put in on a new line
+				else {
+					# print "\n4: $word\n";
+					push @lines, ($line . "\n");
+					$line = $word . " ";
+					$cur_widthavail = $widthavail - (length ($word) + 1);
+				}
+			}
+		}
+		push @lines, $line if $line;
+		# for (@lines) { print "[$_]" };
+		$outtext = join $indenttext,@lines;
+	}
+
+	say str_col("green",">>")," "x9, str_col("green","Description:"),
+			" "x$pad, str_col($color,$outtext);
+}
+
 sub parse_and_print {
 	my $data = shift;
 	unless ($data) {
@@ -149,22 +214,22 @@ sub parse_and_print {
 	}
 
 	my $j = decode_json $data;
-	
+
 	unless ($j) {
 		# However it should die() by itself on decode_json.
 		say "Error decoding the string, quitting.";
 		exit 1;
 	}
-	
+
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_p = ($s_repo eq "p" or $s_repo eq "all") ? 1 : 0;
-	
+
 	for my $el (sort {comp($a, $b)} @{$j}) {
 		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
 		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
-		
+
 		if ($repo_cur_sl) {
 			next unless $repo_pref_sl;
 		}
@@ -174,11 +239,11 @@ sub parse_and_print {
 		elsif ($repo_cur_p) {
 			next unless $repo_pref_p;
 		}
-		
+
 		# note: if "all" option is supported then another check should be made
 		# to remove from search results Sabayon packages that do not match
 		# selected architecture
-		
+
 		# if Sabayon repository, filter out results with different branch
 		if ($repo_cur_sl or $repo_cur_limbo) {
 			next unless $el->{branch} == $branch;
@@ -195,11 +260,12 @@ sub parse_and_print {
 		_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
 		_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
 		_pnt_prop("License:", "bold blue", $el->{license});
-		_pnt_prop("Description:", "magenta", $el->{description});
-		_pnt_prop("Last change:", "bold blue", $el->{change} // "N/A");
+		_pnt_prop_wrap("Description:", "magenta", $el->{description});
+		_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
 		_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
 	}
-	
+
+	say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "), $key;
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
 		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
 }
@@ -331,7 +397,7 @@ sub parse_cmdline {
 	unless(package_name_check_and_warn($key)) {
 		$params_ok = 0;
 	}
-	
+
 	if ($key =~ /^-/) {
 		say "Tip: search term $key begins with a `-' character.\n" .
 			"Maybe you wanted to give an unknown parameter and it was interpreted " ,
@@ -485,7 +551,7 @@ sub str_col {
 
 sub package_name_check_and_warn {
 	# 1 - ok, 0 - not ok
-	my $arg = shift or return 0;
+	my $arg = shift or return 0;		
 	if ($s_type eq "path") {
 		if ($arg =~ /^\//) {
 			return 1;
@@ -493,6 +559,14 @@ sub package_name_check_and_warn {
 		else {
 			say "If you search by path, provide full path (starting with /).";
 			return 0;
+		}
+	}
+	else {
+		if ($arg =~ /^\//) {
+			say str_col("red","Info: "),
+				qq{provided package name begins with a slash, but "path" search },
+				qq{type is not selected.\nIf you want to search by path, specify },
+				qq{correct option.\n};
 		}
 	}
 	if (($s_type eq "pkg" or $s_type eq "match") and $arg =~ /:/) {
