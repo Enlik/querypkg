@@ -51,6 +51,7 @@ my $s_repo = 'sl';
 # another values
 my $branch = "5"; # not used on Portage search
 my $use_colour = 1;
+my $quiet_mode = 0;
 
 # set options and the search $key
 my $key;
@@ -110,8 +111,10 @@ sub get_data {
 		$ua->timeout(15);
 		$ua->env_proxy;
 
-		say str_col("green", ">>  "), str_col("red", "@@ "),
-			str_col("green", "Please wait, downloading data...");
+		unless ($quiet_mode) {
+			say str_col("green", ">>  "), str_col("red", "@@ "),
+				str_col("green", "Please wait, downloading data...");
+		}
 		my $resp = $ua->get($URI);
 		unless($resp->is_success) {
 			say STDERR "Error fetching data: " . $resp->status_line;
@@ -251,21 +254,28 @@ sub parse_and_print {
 			next if $el->{is_source_repo};
 		}
 
-		_pnt_pkg($el->{atom});
-		_pnt_prop("Arch:", "bold blue", $el->{arch});
-		_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
-		_pnt_prop("Slot:", "bold blue", $el->{slot});
-		_pnt_prop("Size:", "bold blue", $el->{size}) unless $repo_cur_p;
-		_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
-		_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
-		_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
-		_pnt_prop("License:", "bold blue", $el->{license});
-		_pnt_prop_wrap("Description:", "magenta", $el->{description});
-		_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
-		_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
+		if ($quiet_mode) {
+			say $el->{atom};
+		}
+		else {
+			_pnt_pkg($el->{atom});
+			_pnt_prop("Arch:", "bold blue", $el->{arch});
+			_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
+			_pnt_prop("Slot:", "bold blue", $el->{slot});
+			_pnt_prop("Size:", "bold blue", $el->{size}) unless $repo_cur_p;
+			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
+			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
+			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
+			_pnt_prop("License:", "bold blue", $el->{license});
+			_pnt_prop_wrap("Description:", "magenta", $el->{description});
+			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
+			_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
+		}
 	}
 
-	say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "), $key;
+	unless ($quiet_mode) {
+		say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "), $key;
+	}
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
 		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
 }
@@ -295,10 +305,11 @@ sub parse_cmdline {
 				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
 					"For interactive use run this script without any parameters.\n" ,
 					"Usage:\n" ,
-					"\t[--arch $arch_opts] [--order $order_opts]\n" ,
+					"\t[--arch $arch_opts] [--order $order_opts] [-q|--quiet]\n" ,
 					"\t[--type $type_opts] [--repo $repo_opts]  keyword\n" ,
 					"\tadditional options: --color - enable colorized output (default), " ,
-					"--nocolor - disable colorized output\n",
+					"--nocolor - disable colorized output, ",
+					"--quiet/-q - produce less output\n",
 					"Default values: $s_arch, $s_order, $s_type, $s_repo.\n",
 					"example usage: $0 --arch x86 --order size pidgin\n" ,
 					"also this is correct: $0 pidgin --arch x86 --order size";
@@ -365,6 +376,9 @@ sub parse_cmdline {
 			}
 			when ("--nocolor") {
 				$use_colour = 0;
+			}
+			when (["--quiet", "-q"]) {
+				$quiet_mode = 1;
 			}
 			# key
 			if (defined $key) {
@@ -474,6 +488,7 @@ sub interactive_ui {
 			"[3] order: $s_order (", $h_order{$s_order}->{desc}, ")\n",
 			"[4] repository: " . $h_repo{$s_repo}->{desc} . "\n",
 			"[c] color: " . ($use_colour ? "enabled" : "disabled") . "\n",
+			"[t] quiet: " . ($quiet_mode ? "enabled" : "disabled") . "\n",
 			"[q] quit\n",
 			"(any other) continue";
 		$key = <STDIN>;
@@ -498,6 +513,9 @@ sub interactive_ui {
 			}
 			when ("c") {
 				$use_colour = !$use_colour;
+			}
+			when ("t") {
+				$quiet_mode = !$quiet_mode;
 			}
 			when ("q") {
 				say "Bye!";
