@@ -114,7 +114,7 @@ sub get_data {
 			str_col("green", "Please wait, downloading data...");
 		my $resp = $ua->get($URI);
 		unless($resp->is_success) {
-			say "Error fetching data: " . $resp->status_line;
+			say STDERR "Error fetching data: " . $resp->status_line;
 			exit 1;
 		}
 
@@ -209,7 +209,7 @@ sub _pnt_prop_wrap {
 sub parse_and_print {
 	my $data = shift;
 	unless ($data) {
-		say str_col("red", "No data supplied.");
+		say STDERR str_col("red", "No data supplied.");
 		return 1;
 	}
 
@@ -217,7 +217,7 @@ sub parse_and_print {
 
 	unless ($j) {
 		# However it should die() by itself on decode_json.
-		say "Error decoding the string, quitting.";
+		say STDERR "Error decoding the string, quitting.";
 		exit 1;
 	}
 
@@ -322,7 +322,7 @@ sub parse_cmdline {
 					$s_arch = $arg;
 				}
 				else {
-					say "Wrong parameters after --arch." ,
+					say STDERR "Wrong parameters after --arch." ,
 						"Currently selected is $s_arch.";
 					$params_ok = 0;
 				}
@@ -333,7 +333,7 @@ sub parse_cmdline {
 					$s_order = $arg;
 				}
 				else {
-					say "Wrong parameters after --order.\n" ,
+					say STDERR "Wrong parameters after --order.\n" ,
 						"Currently selected is $s_order.";
 					$params_ok = 0;
 				}
@@ -344,7 +344,7 @@ sub parse_cmdline {
 					$s_type = $arg;
 				}
 				else {
-					say "Wrong parameters after --type.\n" ,
+					say STDERR "Wrong parameters after --type.\n" ,
 						"Currently selected is $s_type.";
 					$params_ok = 0;
 				}
@@ -355,7 +355,7 @@ sub parse_cmdline {
 					$s_repo = $arg;
 				}
 				else {
-					say "Wrong parameters after --repo.\n" ,
+					say STDERR "Wrong parameters after --repo.\n" ,
 						"Currently selected is $s_repo.";
 					$params_ok = 0;
 				}
@@ -368,9 +368,9 @@ sub parse_cmdline {
 			}
 			# key
 			if (defined $key) {
-				say "You can specify only one keyword (at: $arg).";
+				say STDERR "You can specify only one keyword (at: $arg).";
 				if ($arg =~ /^-/) {
-					say "Tip: search term $arg begins with a `-' character.\n" ,
+					say STDERR "Tip: search term $arg begins with a `-' character.\n" ,
 						"Maybe you gave an unknown parameter and it was " ,
 						"interpreted as search term?";
 				}
@@ -384,12 +384,12 @@ sub parse_cmdline {
 	}
 
 	unless (defined $key) {
-		say "What are you looking for?";
+		say STDERR "What are you looking for?";
 		$params_ok = 0;
 	}
 
 	if (length $key < 3 or length $key > 100) {
-		say "Search term should contain no less that three and no more than " ,
+		say STDERR "Search term should contain no less that three and no more than " ,
 			"one hundred letters.";
 		exit 1;
 	}
@@ -399,13 +399,13 @@ sub parse_cmdline {
 	}
 
 	if ($key =~ /^-/) {
-		say "Tip: search term $key begins with a `-' character.\n" .
+		say STDERR "Tip: search term $key begins with a `-' character.\n" .
 			"Maybe you wanted to give an unknown parameter and it was interpreted " ,
 			"as search term?";
 	}
 
 	unless ($params_ok) {
-		say "\nSpecify correct parameters. Try -h or --help or run this script\n" ,
+		say STDERR "\nSpecify correct parameters. Try -h or --help or run this script\n" ,
 			"without any parameters for interactive usage. Exiting!";
 		exit 1;
 	}
@@ -557,13 +557,13 @@ sub package_name_check_and_warn {
 			return 1;
 		}
 		else {
-			say "If you search by path, provide full path (starting with /).";
+			say STDERR "If you search by path, provide full path (starting with /).";
 			return 0;
 		}
 	}
 	else {
 		if ($arg =~ /^\//) {
-			say str_col("red","Info: "),
+			say STDERR str_col("red","Info: "),
 				qq{provided package name begins with a slash, but "path" search },
 				qq{type is not selected.\nIf you want to search by path, specify },
 				qq{correct option.\n};
@@ -571,7 +571,8 @@ sub package_name_check_and_warn {
 	}
 	if (($s_type eq "pkg" or $s_type eq "match") and $arg =~ /:/) {
 		# A colon is part if the API, so disallow its usage here...
-		say qq{The package name is invalid. It should not contain any ":" characters.};
+		say STDERR qq{The package name is invalid. It should not contain any },
+			qq{":" characters.};
 		return 0;
 	}
 	1;
