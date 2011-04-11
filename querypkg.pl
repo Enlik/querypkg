@@ -33,7 +33,9 @@ my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				size => { API => 'alphabet', desc => 'by size' } );
 my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
 				limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
-				p => { API => 'portage', desc => 'Portage' } );
+				p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
+				psl => { API => 'portage', desc => 'Sabayon overlay', source => 1 },
+				pg => { API => 'portage', desc => 'Portage' , source => 1 } );
 				# since number of results is limited, I think "all" is useless (and see "note" below)
 				#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' } );
 
@@ -81,7 +83,7 @@ sub make_URI {
 	}
 
 	unless ($s_repo eq "all") {
-		if ($s_repo eq "p") {
+		if ($h_repo{$s_repo}->{source}) {
 			$URI .= "&a=arch";
 		}
 		else {
@@ -151,7 +153,7 @@ sub _pnt_prop_wrap {
 	my $len = length $desc;
 	my $WIDTH = 80;
 	my $pad = $len > 20 ? 20 : 20 - $len;
-	
+
 	my $textlen = length $prop;
 	# $indent = space on the beginning of a line
 	my $indent = 2 + $len + 9 + $pad;
@@ -226,7 +228,8 @@ sub parse_and_print {
 
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
-	my $repo_pref_p = ($s_repo eq "p" or $s_repo eq "all") ? 1 : 0;
+	# my $repo_pref_p = ($s_repo =~ /^(p|psl|pg)$/ or $s_repo eq "all") ? 1 : 0;
+	my $repo_pref_p = ($h_repo{$s_repo}->{source} or $s_repo eq "all") ? 1 : 0;
 
 	for my $el (sort {comp($a, $b)} @{$j}) {
 		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
@@ -252,6 +255,41 @@ sub parse_and_print {
 			next unless $el->{branch} == $branch;
 			# let's leave this here, too
 			next if $el->{is_source_repo};
+		}
+		elsif ($repo_cur_p) {
+			# if the origin is not the one selected, don't skip it entirely
+			# instead print it differently
+			# this is the workaround: server sends limited number of results, eg.
+			# if user wants "Sabayon" atoms and server sends 2 from the overlay
+			# and 8 from Gentoo Portage, only those 2 would be printed even
+			# if more of them are on the overlay
+			# purpose of this is: make user aware "something" has been found
+			# and the list is long enough so some atoms must've been skipped! yay
+			if ($s_repo eq "psl") {
+				unless ($el->{spm_repo} eq "sabayon") {
+					if ($quiet_mode) {
+						say "(",$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
+					}
+					else {
+						say str_col("green",">>      "),"(",str_col("red","@@ Package: "),
+							$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
+					}
+					next
+				}
+			}
+			elsif ($s_repo eq "pg") {
+				unless ($el->{spm_repo} eq "gentoo") {
+					if ($quiet_mode) {
+						say "(",$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
+					}
+					else {
+						say str_col("green",">>      "),"(",str_col("red","@@ Package: "),
+							$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
+					}
+					next
+				}
+			}
+			next unless $el->{is_source_repo};
 		}
 
 		if ($quiet_mode) {
@@ -569,7 +607,7 @@ sub str_col {
 
 sub package_name_check_and_warn {
 	# 1 - ok, 0 - not ok
-	my $arg = shift or return 0;		
+	my $arg = shift or return 0;
 	if ($s_type eq "path") {
 		if ($arg =~ /^\//) {
 			return 1;
