@@ -157,7 +157,8 @@ sub _pnt_prop_wrap {
 	my $textlen = length $prop;
 	# $indent = space on the beginning of a line
 	my $indent = 2 + $len + 9 + $pad;
-	my $indenttext = " " x $indent;
+	#my $indenttext =  " " x $indent;
+	my $indenttext = str_col("green", ">>") . " " x ($indent - 2);
 	my $widthavail = $WIDTH - $indent;
 	my $outtext;
 	if ($textlen <= $widthavail) {
@@ -170,12 +171,10 @@ sub _pnt_prop_wrap {
 		for my $word (split /\s/, $prop) {
 			A_LABEL:
 			if (length $word < $cur_widthavail) {
-				# print "\n1: $word\n";
 				$line .= $word . " ";
 				$cur_widthavail -= (length($word) + 1);
 			}
 			elsif (length $word == $cur_widthavail) {
-				# print "\n2: $word\n";
 				$line .= $word . "\n";
 				push @lines, $line;
 				$line = "";
@@ -185,7 +184,6 @@ sub _pnt_prop_wrap {
 			else {
 				# maybe it's longer than available width?
 				if (length $word > $widthavail) {
-					# print "\n3: $word\n";
 					$line .= (substr $word, 0, $cur_widthavail) . "\n";
 					push @lines, $line;
 					$line = "";
@@ -195,7 +193,6 @@ sub _pnt_prop_wrap {
 				}
 				# otherwise let's put in on a new line
 				else {
-					# print "\n4: $word\n";
 					push @lines, ($line . "\n");
 					$line = $word . " ";
 					$cur_widthavail = $widthavail - (length ($word) + 1);
@@ -204,11 +201,12 @@ sub _pnt_prop_wrap {
 		}
 		push @lines, $line if $line;
 		# for (@lines) { print "[$_]" };
-		$outtext = join $indenttext,@lines;
+		# $outtext = join $indenttext,@lines;
+		$outtext = join $indenttext,(map { str_col($color,$_) } @lines);
 	}
 
 	say str_col("green",">>")," "x9, str_col("green",$desc),
-			" "x$pad, str_col($color,$outtext);
+			" "x$pad, $outtext; #str_col($color,$outtext);
 }
 
 sub parse_and_print {
@@ -596,12 +594,12 @@ sub interactive_ui {
 ######## UI helpers ########
 
 sub str_col {
-	my $col = shift or return ();
+	my $col = shift or return "";
 	if ($use_colour) {
-		return color($col), @_, color("reset");
+		return color($col) . (join "",@_) . color("reset");
 	}
 	else {
-		return @_;
+		return join "",@_;
 	}
 }
 
