@@ -136,6 +136,36 @@ sub _pnt_pkg {
 			str_col("bold white",$atom);
 }
 
+sub _pnt_spm_atom {
+	my $atom = shift;
+	my $spm_repo = shift;
+	my %opts = @_; # quiet, foreign
+	my $str = "";
+	# example for quiet=0, foreign=1:
+	# >>      (@@ Package: dev-dotnet/gudev-sharp-0.1::gentoo)
+	if ($opts{quiet}) {
+		$str .= "(" if $opts{foreign};
+		$str .= $atom;
+		$str .= $opts{foreign} ? str_col("bold red", "::") : str_col("bold green", "::");
+		$str .= str_col("blue",$spm_repo);
+		#$str .= str_col("bold blue", "::");
+		#$str .= $opts{foreign} ? str_col("red", $spm_repo) : str_col("green", $spm_repo);
+		$str .= ")" if $opts{foreign};
+	}
+	else {
+		$str .= str_col("green",">>      ");
+		$str .= "(" if $opts{foreign};
+		$str .= str_col("red","@@ Package: ");
+		$str .= $opts{foreign} ? $atom : str_col("bold white",$atom);
+		$str .= $opts{foreign} ? str_col("bold red", "::") : str_col("bold green", "::");
+		$str .= str_col("blue",$spm_repo);
+		#$str .= str_col("bold blue", "::");
+		#$str .= $opts{foreign} ? str_col("red", $spm_repo) : str_col("green", $spm_repo);
+		$str .= ")" if $opts{foreign};
+	}
+	say $str;
+}
+
 sub _pnt_prop {
 	my $desc = shift;
 	my $color = shift;
@@ -233,6 +263,7 @@ sub parse_and_print {
 		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
 		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
+		my $repo_cur_foreign_p = 0; # 1 if not the "overlay" user wants
 
 		if ($repo_cur_sl) {
 			next unless $repo_pref_sl;
@@ -255,6 +286,7 @@ sub parse_and_print {
 			next if $el->{is_source_repo};
 		}
 		elsif ($repo_cur_p) {
+			next unless $el->{is_source_repo};
 			# if the origin is not the one selected, don't skip it entirely
 			# instead print it differently
 			# this is the workaround: server sends limited number of results, eg.
@@ -264,37 +296,31 @@ sub parse_and_print {
 			# purpose of this is: make user aware "something" has been found
 			# and the list is long enough so some atoms must've been skipped! yay
 			if ($s_repo eq "psl") {
-				unless ($el->{spm_repo} eq "sabayon") {
-					if ($quiet_mode) {
-						say "(",$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
-					}
-					else {
-						say str_col("green",">>      "),"(",str_col("red","@@ Package: "),
-							$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
-					}
-					next
-				}
+				$repo_cur_foreign_p = 1 unless ($el->{spm_repo} eq "sabayon");
 			}
 			elsif ($s_repo eq "pg") {
-				unless ($el->{spm_repo} eq "gentoo") {
-					if ($quiet_mode) {
-						say "(",$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
-					}
-					else {
-						say str_col("green",">>      "),"(",str_col("red","@@ Package: "),
-							$el->{atom},"::",str_col("blue",$el->{spm_repo}),")";
-					}
-					next
-				}
+				$repo_cur_foreign_p = 1 unless ($el->{spm_repo} eq "gentoo");
 			}
-			next unless $el->{is_source_repo};
 		}
 
 		if ($quiet_mode) {
-			say $el->{atom};
+			if ($repo_cur_p) {
+				_pnt_spm_atom($el->{atom}, $el->{spm_repo},
+					quiet=>$quiet_mode, foreign=>$repo_cur_foreign_p);
+			}
+			else {
+				say $el->{atom};
+			}
 		}
 		else {
-			_pnt_pkg($el->{atom});
+			if ($repo_cur_p && $repo_cur_foreign_p) {
+				_pnt_spm_atom($el->{atom}, $el->{spm_repo},
+					quiet=>$quiet_mode, foreign=>$repo_cur_foreign_p);
+			}
+			else {
+				_pnt_pkg($el->{atom});
+			}
+			next if $repo_cur_foreign_p; # don't print properties
 			_pnt_prop("Arch:", "bold blue", $el->{arch});
 			_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
 			_pnt_prop("Slot:", "bold blue", $el->{slot});
