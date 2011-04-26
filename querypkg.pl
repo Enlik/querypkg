@@ -63,7 +63,6 @@ if(@ARGV) {
 else {
 	interactive_ui();
 }
-
 my $data = get_data(make_URI($key));
 parse_and_print ($data);
 exit 0;
@@ -75,7 +74,7 @@ sub make_URI {
 	my $key_ok = uri_escape $key;
 	my $URI = "http://packages.sabayon.org/search?q=";
 	if ($s_type eq "lib" or $s_type eq "path") {
-		$URI .= $h_type{$s_type}->{API} . "$key_ok";
+		$URI .= $h_type{$s_type}->{API} . $key_ok;
 	}
 	else {
 		$URI .= $key_ok;
@@ -101,7 +100,7 @@ sub make_URI {
 sub get_data {
 	my $URI = shift or return;
 	my $str;
-	my $_file = '/tmp/s'; # local file with data, set for *debugging* purposes
+	my $_file = 'bla'; # local file with data, set for *debugging* purposes
 	undef $_file;
 	if (defined $_file) {
 		say str_col("green", ">>  "), str_col("red", "@@ "),
@@ -132,8 +131,8 @@ sub get_data {
 
 sub _pnt_pkg {
 	my $atom = shift;
-	say str_col("green",">>      "), str_col("red","@@ Package: "),
-			str_col("bold white",$atom);
+	say str_col("green",">>      "), str_col("bold red","@@ Package: "),
+			str_col("bold",$atom);
 }
 
 sub _pnt_spm_atom {
@@ -156,7 +155,7 @@ sub _pnt_spm_atom {
 		$str .= str_col("green",">>      ");
 		$str .= "(" if $opts{foreign};
 		$str .= str_col("red","@@ Package: ");
-		$str .= $opts{foreign} ? $atom : str_col("bold white",$atom);
+		$str .= $opts{foreign} ? $atom : str_col("bold",$atom);
 		$str .= $opts{foreign} ? str_col("bold red", "::") : str_col("bold green", "::");
 		$str .= str_col("blue",$spm_repo);
 		#$str .= str_col("bold blue", "::");
@@ -172,7 +171,7 @@ sub _pnt_prop {
 	my $prop = shift;
 	my $len = length $desc;
 	my $pad = $len > 20 ? 20 : 20 - $len;
-	say str_col("green",">>")," "x9, str_col("green","$desc"),
+	say str_col("green",">>")," "x9, str_col("green",$desc),
 			" "x$pad, str_col($color,$prop);
 }
 
@@ -192,7 +191,7 @@ sub _pnt_prop_wrap {
 	my $widthavail = $WIDTH - $indent;
 	my $outtext;
 	if ($textlen <= $widthavail) {
-		$outtext = $prop;
+		$outtext = str_col($color,$prop);
 	}
 	else {
 		my $line = "";
@@ -328,15 +327,16 @@ sub parse_and_print {
 			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
 			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
 			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
-			_pnt_prop("License:", "bold blue", $el->{license});
 			_pnt_prop_wrap("Description:", "magenta", $el->{description});
+			_pnt_prop("License:", "cyan", $el->{license});
 			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
 			_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
 		}
 	}
 
 	unless ($quiet_mode) {
-		say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "), $key;
+		say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "),
+			str_col("magenta",$key);
 	}
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
 		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
