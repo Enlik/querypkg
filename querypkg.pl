@@ -131,14 +131,20 @@ sub get_data {
 
 sub _pnt_pkg {
 	my $atom = shift;
-	say str_col("green",">>      "), str_col("bold red","@@ Package: "),
+	my $quiet = shift;
+	if ($quiet) {
+		say $atom;
+	}
+	else {
+		say str_col("green",">>      "), str_col("bold red","@@ Package: "),
 			str_col("bold",$atom);
+	}
 }
 
 sub _pnt_spm_atom {
 	my $atom = shift;
-	my $spm_repo = shift;
-	my %opts = @_; # quiet, foreign
+	my %opts = @_; # quiet, foreign, source = 1, spm_repo
+	my $spm_repo = $opts{spm_repo} || "(unknown)";
 	my $str = "";
 	# example for quiet=0, foreign=1:
 	# >>      (@@ Package: dev-dotnet/gudev-sharp-0.1::gentoo)
@@ -156,13 +162,24 @@ sub _pnt_spm_atom {
 		$str .= "(" if $opts{foreign};
 		$str .= str_col("red","@@ Package: ");
 		$str .= $opts{foreign} ? $atom : str_col("bold",$atom);
-		$str .= $opts{foreign} ? str_col("bold red", "::") : str_col("bold green", "::");
-		$str .= str_col("blue",$spm_repo);
-		#$str .= str_col("bold blue", "::");
-		#$str .= $opts{foreign} ? str_col("red", $spm_repo) : str_col("green", $spm_repo);
+		if ($opts{foreign}) {
+			$str .= str_col("bold red", "::");
+			$str .= str_col("blue",$spm_repo);
+		}
 		$str .= ")" if $opts{foreign};
 	}
 	say $str;
+}
+
+sub _pnt_atom_name {
+	my $atom = shift;
+	my %opts = @_; # booleans: quiet, foreign, source; string: spm_repo
+	if ($opts{source}) {
+		_pnt_spm_atom ($atom, @_);
+	}
+	else {
+		_pnt_pkg ($atom, $opts{quiet});
+	}
 }
 
 sub _pnt_prop {
@@ -302,23 +319,11 @@ sub parse_and_print {
 			}
 		}
 
-		if ($quiet_mode) {
-			if ($repo_cur_p) {
-				_pnt_spm_atom($el->{atom}, $el->{spm_repo},
-					quiet=>$quiet_mode, foreign=>$repo_cur_foreign_p);
-			}
-			else {
-				say $el->{atom};
-			}
-		}
-		else {
-			if ($repo_cur_p && $repo_cur_foreign_p) {
-				_pnt_spm_atom($el->{atom}, $el->{spm_repo},
-					quiet=>$quiet_mode, foreign=>$repo_cur_foreign_p);
-			}
-			else {
-				_pnt_pkg($el->{atom});
-			}
+		_pnt_atom_name($el->{atom},
+			quiet => $quiet_mode, foreign => $repo_cur_foreign_p,
+			source => $repo_cur_p, spm_repo => $el->{spm_repo});
+
+		unless ($quiet_mode) {
 			next if $repo_cur_foreign_p; # don't print properties
 			_pnt_prop("Arch:", "bold blue", $el->{arch});
 			_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
