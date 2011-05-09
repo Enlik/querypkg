@@ -373,7 +373,7 @@ sub parse_cmdline {
 					"For interactive use run this script without any parameters.\n" ,
 					"Usage:\n" ,
 					"\t[--arch $arch_opts] [--order $order_opts] [-q|--quiet]\n" ,
-					"\t[--type $type_opts] [--repo $repo_opts]  keyword\n" ,
+					"\t[--type $type_opts] [--repo $repo_opts] keyword\n" ,
 					"\tadditional options: --color - enable colorized output (default), " ,
 					"--nocolor - disable colorized output, ",
 					"--quiet/-q - produce less output\n",
@@ -382,15 +382,15 @@ sub parse_cmdline {
 					"also this is correct: $0 pidgin --arch x86 --order size";
 				say "\n--type:";
 				for (_get_opts(@h_type)) {
-					say "$_\t\t", $h_type{$_}->{desc};
+					printf ("%-10s\t%s\n", $_, $h_type{$_}->{desc});
 				}
 				say "\n--order:";
 				for (_get_opts(@h_order)) {
-					say "$_\t\t", $h_order{$_}->{desc};
+					printf ("%-10s\t%s\n", $_, $h_order{$_}->{desc});
 				}
 				say "\n--repo:";
 				for (_get_opts(@h_repo)) {
-					say "$_\t\t", $h_repo{$_}->{desc};
+					printf ("%-10s\t%s\n", $_, $h_repo{$_}->{desc});
 				}
 				exit 0;
 			}
