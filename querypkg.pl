@@ -448,13 +448,13 @@ sub parse_cmdline {
 				$quiet_mode = 1;
 			}
 			# key
+			if ($arg =~ /^-/) {
+				say STDERR "- Tip: search term $arg begins with a `-' character.\n" ,
+					"- Maybe you gave an unknown parameter and it was " ,
+					"interpreted as search term?";
+			}
 			if (defined $key) {
-				say STDERR "You can specify only one keyword (at: $arg).";
-				if ($arg =~ /^-/) {
-					say STDERR "Tip: search term $arg begins with a `-' character.\n" ,
-						"Maybe you gave an unknown parameter and it was " ,
-						"interpreted as search term?";
-				}
+				say STDERR "* You can specify only one keyword (at: $arg).";
 				$params_ok = 0;
 				last;
 			}
@@ -470,19 +470,13 @@ sub parse_cmdline {
 	}
 
 	if (length $key < 3 or length $key > 100) {
-		say STDERR "Search term should contain no less that three and no more than " ,
+		say STDERR "- Search term should contain no less that three and no more than " ,
 			"one hundred letters.";
 		exit 1;
 	}
 
 	unless(package_name_check_and_warn($key)) {
 		$params_ok = 0;
-	}
-
-	if ($key =~ /^-/) {
-		say STDERR "Tip: search term $key begins with a `-' character.\n" .
-			"Maybe you wanted to give an unknown parameter and it was interpreted " ,
-			"as search term?";
 	}
 
 	unless ($params_ok) {
