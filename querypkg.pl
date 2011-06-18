@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# you probably need dev-perl/JSON-XS, dev-perl/URI,
+# you need dev-perl/JSON-XS, dev-perl/URI,
 # and dev-perl/libwww-perl to use this
 
 # a simple interface to packages.sabayon.org
@@ -469,9 +469,9 @@ sub parse_cmdline {
 		$params_ok = 0;
 	}
 
-	if (length $key < 3 or length $key > 100) {
-		say STDERR "- Search term should contain no less that three and no more than " ,
-			"one hundred letters.";
+	if (length $key < 3 or length $key > 64) {
+		say STDERR "- Search term should contain no less than three ",
+			"and no more than sixty four letters.";
 		exit 1;
 	}
 
@@ -603,7 +603,7 @@ sub interactive_ui {
 		if (length $new_key < 3) {
 			say "Too short! Try again or type Ctrl+C to abort.";
 		}
-		elsif(length $new_key > 100) {
+		elsif(length $new_key > 64) {
 			say "Too long! Try again or type Ctrl+C to abort.";
 		}
 		elsif (!package_name_check_and_warn($new_key)) {
