@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# you need dev-perl/JSON-XS, dev-perl/URI,
+# you need dev-perl/JSON-XS, dev-perl/URI
 # and dev-perl/libwww-perl to use this
 
 # a simple interface to packages.sabayon.org
@@ -54,6 +54,7 @@ my $s_repo = 'sl';
 my $branch = "5"; # not used on Portage search
 my $use_colour = 1;
 my $quiet_mode = 0;
+my $print_details_url = 0;
 
 # set options and the search $key
 my $key;
@@ -187,7 +188,7 @@ sub _pnt_prop {
 	my $color = shift;
 	my $prop = shift;
 	my $len = length $desc;
-	my $pad = $len > 20 ? 20 : 20 - $len;
+	my $pad = $len > 15 ? 15 : 15 - $len;
 	say str_col("green",">>")," "x9, str_col("green",$desc),
 			" "x$pad, str_col($color,$prop);
 }
@@ -198,7 +199,7 @@ sub _pnt_prop_wrap {
 	my $prop = shift;
 	my $len = length $desc;
 	my $WIDTH = 80;
-	my $pad = $len > 20 ? 20 : 20 - $len;
+	my $pad = $len > 15 ? 15 : 15 - $len;
 
 	my $textlen = length $prop;
 	# $indent = space on the beginning of a line
@@ -282,6 +283,7 @@ sub parse_and_print {
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
 		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
 		my $repo_cur_foreign_p = 0; # 1 if not the "overlay" user wants
+		my %meta_items = ();
 
 		# count also skipped
 		$result_counter++;
@@ -324,11 +326,29 @@ sub parse_and_print {
 			}
 		}
 
+		for my $item (@{$el->{meta_items}}) {
+			if (!defined $item->{id}) {
+				last;
+			}
+			given ($item->{id}) {
+				when ("details") {
+					$meta_items{details} = "http://packages.sabayon.org" . $item->{url};
+				}
+				when ("homepage") {
+					$meta_items{homepage} = $item->{url};
+				}
+			}
+		}
+
 		_pnt_atom_name($el->{atom},
 			quiet => $quiet_mode, foreign => $repo_cur_foreign_p,
 			source => $repo_cur_p, spm_repo => $el->{spm_repo});
 
-		unless ($quiet_mode) {
+		if ($quiet_mode) {
+			say " ", ($meta_items{details} // "(URL unknown)"), "\n"
+				if ($print_details_url);
+		}
+		else {
 			next if $repo_cur_foreign_p; # don't print properties
 			_pnt_prop("Arch:", "bold blue", $el->{arch});
 			_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
@@ -337,10 +357,13 @@ sub parse_and_print {
 			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
 			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
 			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
+			_pnt_prop("Homepage", "yellow", $meta_items{homepage} // "(null)");
 			_pnt_prop_wrap("Description:", "magenta", $el->{description});
 			_pnt_prop("License:", "cyan", $el->{license});
 			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
 			_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
+			_pnt_prop ("Details page:", "underline", $meta_items{details} // "(URL unknown)")
+				if ($print_details_url);
 		}
 	}
 
@@ -384,14 +407,16 @@ sub parse_cmdline {
 					$repo_opts = join "|",_get_opts(@h_repo);
 				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
 					"For interactive use run this script without any parameters.\n" ,
-					"Usage:\n" ,
-					"\t[--arch $arch_opts] [--order $order_opts] [-q|--quiet]\n" ,
-					"\t[--type $type_opts] [--repo $repo_opts] keyword\n" ,
-					"\tadditional options: --color - enable colorized output (default), " ,
+					"  Usage:\n" ,
+					"\t<keyword> [-q|--quiet] [-u]\n" ,
+					"\t[--arch $arch_opts] [--order $order_opts]\n" ,
+					"\t[--type $type_opts] [--repo $repo_opts]\n" ,
+					"  Default values: $s_arch, $s_order, $s_type, $s_repo.\n",
+					"  Additional options: --color - enable colorized output (default), " ,
 					"--nocolor - disable colorized output, ",
-					"--quiet/-q - produce less output\n",
-					"Default values: $s_arch, $s_order, $s_type, $s_repo.\n",
-					"example usage: $0 --arch x86 --order size pidgin\n" ,
+					"--quiet/-q - produce less output, ",
+					"-u - print URL to get package details.\n", 
+					"  example usage: $0 --arch x86 --order size pidgin\n" ,
 					"also this is correct: $0 pidgin --arch x86 --order size";
 				say "\n--type:";
 				for (_get_opts(@h_type)) {
@@ -459,6 +484,9 @@ sub parse_cmdline {
 			}
 			when (["--quiet", "-q"]) {
 				$quiet_mode = 1;
+			}
+			when ("-u") {
+				$print_details_url = 1;
 			}
 			# key
 			if ($arg =~ /^-/) {
@@ -563,6 +591,8 @@ sub interactive_ui {
 			"[4] repository: " . $h_repo{$s_repo}->{desc} . "\n",
 			"[c] color: " . ($use_colour ? "enabled" : "disabled") . "\n",
 			"[t] quiet: " . ($quiet_mode ? "enabled" : "disabled") . "\n",
+			"[u] print URL to get package details: " .
+				($print_details_url ? "enabled" : "disabled") . "\n",
 			"[q] quit\n",
 			"(any other) continue";
 		$key = <STDIN>;
@@ -590,6 +620,9 @@ sub interactive_ui {
 			}
 			when ("t") {
 				$quiet_mode = !$quiet_mode;
+			}
+			when ("u") {
+				$print_details_url = !$print_details_url;
 			}
 			when ("q") {
 				say "Bye!";
