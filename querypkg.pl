@@ -270,6 +270,8 @@ sub parse_and_print {
 		exit 1;
 	}
 
+	my $result_counter = 0;
+
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
 	# my $repo_pref_p = ($s_repo =~ /^(p|psl|pg)$/ or $s_repo eq "all") ? 1 : 0;
@@ -280,6 +282,9 @@ sub parse_and_print {
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
 		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
 		my $repo_cur_foreign_p = 0; # 1 if not the "overlay" user wants
+
+		# count also skipped
+		$result_counter++;
 
 		if ($repo_cur_sl) {
 			next unless $repo_pref_sl;
@@ -343,9 +348,17 @@ sub parse_and_print {
 		say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "),
 			str_col("magenta",$key);
 	}
+	if ($result_counter == 10) {
+		my $msg = "The number of items sent by the server equals the ";
+		$msg .= "server-side limit of 10.\nIf there are more results, ";
+		$msg .= "they were omitted.";
+		say str_col("bold yellow", "\n* "),
+			$quiet_mode ? $msg : str_col("bold", $msg);
+	}
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
 		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
 }
+
 
 ######## parse_cmdline ########
 
