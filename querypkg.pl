@@ -29,7 +29,8 @@ my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
 my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				vote => { API => 'vote', desc => 'by votes' },
 				downloads => { API => 'downloads', desc => 'by downloads' },
-				size => { API => '', desc => 'by size' } );
+				size => { API => '', desc => 'by size' },
+				date => { API => '', desc => 'by "date" field' }, );
 my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
 				limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
 				p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
@@ -750,6 +751,9 @@ sub comp {
 		}
 		when ("downloads") {
 			return ($b->{ugc}->{downloads} <=> $a->{ugc}->{downloads});
+		}
+		when ("date") {
+			return ($b->{mtime} <=> $a->{mtime});
 		}
 		# default
 		return 0;
