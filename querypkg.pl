@@ -359,6 +359,7 @@ sub parse_and_print {
 			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
 			_pnt_prop("Homepage", "yellow", $meta_items{homepage} // "(null)");
 			_pnt_prop_wrap("Description:", "magenta", $el->{description});
+			_pnt_prop("Date:", "bold blue", $el->{date});
 			_pnt_prop("License:", "cyan", $el->{license});
 			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
 			_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
