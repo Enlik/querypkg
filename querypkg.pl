@@ -16,21 +16,20 @@ use URI::Escape;
 use JSON::XS;
 
 # options (mostly API options):
-# $o_var = ( option => { API => 'API key', desc => 'description' } )
-# note: those "API keys" can mean different API-related things (for example lib->{API})
+# note: those "API keys" mean "input" or "output" API related things
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (	amd64 => { API => 'amd64', desc => 'amd64' },
 				x86 => { API => 'x86', desc => 'x86' } );
 				# "arch" if Portage selected: hard-coded in make_URI
 my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
 				desc => { API => 'desc', desc => 'description' },
-				path => { API => '', desc => 'path' },
-				lib => { API => 'sop:', desc => 'package that provides a library (.so)' },
+				path => { API => '', desc => 'path', prepend => 1 },
+				lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
 				match => { API => 'match', desc => 'package matching' } );
 my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				vote => { API => 'vote', desc => 'by votes' },
 				downloads => { API => 'downloads', desc => 'by downloads' },
-				size => { API => 'alphabet', desc => 'by size' } );
+				size => { API => '', desc => 'by size' } );
 my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
 				limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
 				p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
@@ -74,7 +73,7 @@ sub make_URI {
 	my $key = shift or die "no arg!";
 	my $key_ok = uri_escape $key;
 	my $URI = "http://packages.sabayon.org/search?q=";
-	if ($s_type eq "lib" or $s_type eq "path") {
+	if ($h_type{$s_type}->{prepend}) {
 		$URI .= $h_type{$s_type}->{API} . $key_ok;
 	}
 	else {
@@ -91,7 +90,8 @@ sub make_URI {
 			$URI .= "&b=$branch";
 		}
 	}
-	($URI .= "&o=" . $h_order{$s_order}->{API}) unless $s_order eq "size";
+	# empty means "internal" sort order, not provided by the server
+	($URI .= "&o=" . $h_order{$s_order}->{API}) if $h_order{$s_order}->{API};
 	$URI .= "&render=json";
 	$URI;
 }
