@@ -276,7 +276,6 @@ sub parse_and_print {
 
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
-	# my $repo_pref_p = ($s_repo =~ /^(p|psl|pg)$/ or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_p = ($h_repo{$s_repo}->{source} or $s_repo eq "all") ? 1 : 0;
 
 	for my $el (sort {comp($a, $b)} @{$j}) {
@@ -299,9 +298,9 @@ sub parse_and_print {
 			next unless $repo_pref_p;
 		}
 
-		# note: if "all" option is supported then another check should be made
-		# to remove from search results Sabayon packages that do not match
-		# selected architecture
+		# note: if "all" option is supported then additional check should be
+		# considered to remove Sabayon packages from search results that
+		# do not match selected architecture
 
 		# if Sabayon repository, filter out results with different branch
 		if ($repo_cur_sl or $repo_cur_limbo) {
@@ -390,11 +389,7 @@ sub parse_and_print {
 sub _get_opts {
 	# arg: for example @h_args
 	# populate keys, in order
-	my @keys = ();
-	while (defined (my $x = shift)) {
-		push @keys, $x unless ref $x;
-	}
-	@keys;
+	grep { not ref } @_; # take only strings - options
 }
 
 sub parse_cmdline {
@@ -417,7 +412,7 @@ sub parse_cmdline {
 					"  Additional options: --color - enable colorized output (default), " ,
 					"--nocolor - disable colorized output, ",
 					"--quiet/-q - produce less output, ",
-					"-u - print URL to get package details.\n", 
+					"-u - print URL to get package details.\n",
 					"  example usage: $0 --arch x86 --order size pidgin\n" ,
 					"also this is correct: $0 pidgin --arch x86 --order size";
 				say "\n--type:";
@@ -532,11 +527,11 @@ sub parse_cmdline {
 ######## interactive_ui ########
 
 sub _pnt_set_opt {
-	my $s_r = shift or die "no arg!"; # ref to variable like $s_arch
-	my $h_r = shift or die "no arg!"; # ref to variable like @h_arch (array!)
-	my $print_opt = shift; # print description with option, too?
-	my $s_tmp = $$s_r;
-	my %h_tmp = @$h_r;
+	my $s_ref = shift or die "no arg!"; # ref to variable like $s_arch
+	my $h_ref = shift or die "no arg!"; # ref to variable like @h_arch (array!)
+	my $print_opt = shift; # print option name, too?
+	my $s_tmp = $$s_ref;
+	my %h_tmp = @$h_ref;
 
 	if ($print_opt) {
 		say "currently selected: $s_tmp (", $h_tmp{$s_tmp}->{desc}, ")";
@@ -546,10 +541,7 @@ sub _pnt_set_opt {
 	}
 
 	# populate keys, in order
-	my @keys = ();
-	for (@$h_r) {
-		push @keys, $_ unless ref $_; # push only strings - options
-	}
+	my @keys = grep { not ref } @$h_ref;
 
 	my $l = 'a';
 	for my $opt (@keys) {
@@ -568,7 +560,7 @@ sub _pnt_set_opt {
 		# do nothing if no argument/out of range
 	}
 	else {
-		$$s_r = $s_tmp = $keys[ord ($resp) - ord ('a')];
+		$$s_ref = $s_tmp = $keys[ord ($resp) - ord ('a')];
 	}
 
 	if ($print_opt) {
