@@ -52,7 +52,7 @@ my $s_repo = 'sl';
 
 # another values
 my $branch = "5"; # not used on Portage search
-my $use_colour = 1;
+my $use_colour = (-t STDOUT);
 my $quiet_mode = 0;
 my $print_details_url = 0;
 
