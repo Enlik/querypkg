@@ -25,7 +25,8 @@ my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
 				desc => { API => 'desc', desc => 'description' },
 				path => { API => '', desc => 'path', prepend => 1 },
 				lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
-				match => { API => 'match', desc => 'package matching' } );
+				match => { API => 'match', desc => 'package matching' },
+				set => { API => '@', desc => 'package set, for example @xfce', prepend => 1 } );
 my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
 				vote => { API => 'vote', desc => 'by votes' },
 				downloads => { API => 'downloads', desc => 'by downloads' },
@@ -72,6 +73,9 @@ exit 0;
 
 sub make_URI {
 	my $key = shift or die "no arg!";
+	if ($s_type eq "set") {
+		$key = substr $key, 1 if $key =~ /^@/;
+	}
 	my $key_ok = uri_escape $key;
 	my $URI = "http://packages.sabayon.org/search?q=";
 	if ($h_type{$s_type}->{prepend}) {
@@ -687,6 +691,13 @@ sub package_name_check_and_warn {
 				qq{provided package name begins with a slash, but "path" search },
 				qq{type is not selected.\nIf you want to search by path, specify },
 				qq{correct option.\n};
+		}
+	}
+	if ($arg =~ /^@/) {
+		if (not $s_type eq "set") {
+			say STDERR str_col("red","Info: "),
+				qq{package name starts with @ - assuming search type "set".\n};
+			$s_type = "set";
 		}
 	}
 	if (($s_type eq "pkg" or $s_type eq "match") and $arg =~ /:/) {
