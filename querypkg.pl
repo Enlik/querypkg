@@ -24,6 +24,7 @@ my @h_arch = (	amd64 => { API => 'amd64', desc => 'amd64' },
 my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
 				desc => { API => 'desc', desc => 'description' },
 				path => { API => '', desc => 'path', prepend => 1 },
+				use => { API => 'u:', desc => 'USE flag', prepend => 1},
 				lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
 				match => { API => 'match', desc => 'package matching' },
 				set => { API => '@', desc => 'package set, for example @xfce', prepend => 1 } );
@@ -399,6 +400,7 @@ sub _get_opts {
 
 sub parse_cmdline {
 	my $params_ok = 1;
+	my @unknown_with_hyphen = ();
 	while (my $arg = shift) {
 		given ($arg) {
 			when(["--help", "-h"]) {
@@ -491,11 +493,7 @@ sub parse_cmdline {
 				$print_details_url = 1;
 			}
 			# key
-			if ($arg =~ /^-/) {
-				say STDERR "- Tip: search term $arg begins with a `-' character.\n" ,
-					"- Maybe you gave an unknown parameter and it was " ,
-					"interpreted as search term?";
-			}
+			push @unknown_with_hyphen, $arg if $arg =~ /^-/;
 			if (defined $key) {
 				say STDERR "* You can specify only one keyword (at: $arg).";
 				$params_ok = 0;
@@ -510,6 +508,14 @@ sub parse_cmdline {
 	unless (defined $key) {
 		say STDERR "What are you looking for?";
 		$params_ok = 0;
+	}
+
+	unless ($s_type eq "use") {
+		for (@unknown_with_hyphen) {
+			say STDERR "- Tip: search term ", str_col("yellow",$_),
+				" begins with a `-' character.\n  Maybe you gave an unknown ",
+				"parameter and it was interpreted as search term?";
+		}
 	}
 
 	if (length $key < 3 or length $key > 64) {
