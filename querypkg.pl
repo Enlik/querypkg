@@ -88,6 +88,7 @@ sub make_URI {
 		}
 		else {
 			$URI .= "&a=" . $h_arch{$s_arch}->{API};
+			$URI .= "&r=" . $h_repo{$s_repo}->{API};
 			$URI .= "&b=$branch";
 		}
 	}
