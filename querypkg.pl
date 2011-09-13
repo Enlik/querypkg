@@ -404,35 +404,45 @@ sub parse_cmdline {
 	while (my $arg = shift) {
 		given ($arg) {
 			when(["--help", "-h"]) {
-					my ($arch_opts, $type_opts, $order_opts, $repo_opts);
-					$arch_opts = join "|",_get_opts(@h_arch);
-					$type_opts = join "|",_get_opts(@h_type);
-					$order_opts = join "|",_get_opts(@h_order);
-					$repo_opts = join "|",_get_opts(@h_repo);
+				my ($arch_opts, $type_opts, $order_opts, $repo_opts);
+				$arch_opts = join "|",_get_opts(@h_arch);
+				$type_opts = join "|",_get_opts(@h_type);
+				$order_opts = join "|",_get_opts(@h_order);
+				$repo_opts = join "|",_get_opts(@h_repo);
+				# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
+				my %B = map { $_ => str_col("bold blue", $_) }
+					qw(keyword -q --quiet -u --arch --order --type --repo --color --nocolor);
 				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
 					"For interactive use run this script without any parameters.\n" ,
 					"  Usage:\n" ,
-					"\t<keyword> [-q|--quiet] [-u]\n" ,
-					"\t[--arch $arch_opts] [--order $order_opts]\n" ,
-					"\t[--type $type_opts] [--repo $repo_opts]\n" ,
-					"  Default values: $s_arch, $s_order, $s_type, $s_repo.\n",
-					"  Additional options: --color - enable colorized output (default), " ,
-					"--nocolor - disable colorized output, ",
-					"--quiet/-q - produce less output, ",
-					"-u - print URL to get package details.\n",
-					"  example usage: $0 --arch x86 --order size pidgin\n" ,
-					"also this is correct: $0 pidgin --arch x86 --order size";
-				say "\n--type:";
+					"\t<$B{'keyword'}> [$B{'-q'}|$B{'--quiet'}] [$B{'-u'}]\n" ,
+					"\t[$B{'--arch'} $arch_opts] [$B{'--order'} $order_opts]\n" ,
+					"\t[$B{'--type'} $type_opts] [$B{'--repo'} $repo_opts]\n" ,
+					"  Additional options: $B{'--color'} - enable colorized ",
+					"output (default), " ,
+					"$B{'--nocolor'} - disable colorized output, ",
+					"$B{'--quiet'}/$B{'-q'} - produce less output, ",
+					"$B{'-u'} - print URL to get package details.\n",
+					"  example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin\n" ,
+					"  order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size\n";
+				say " default option is marked with an asterisk; default arch: $s_arch";
+				say "$B{'--type'}:";
 				for (_get_opts(@h_type)) {
-					printf ("%-10s\t%s\n", $_, $h_type{$_}->{desc});
+					printf "%-14s%s %s\n", $_,
+						($_ eq $s_type ? str_col("bold blue","*") : " "),
+						$h_type{$_}->{desc};
 				}
-				say "\n--order:";
+				say "\n$B{'--order'}:";
 				for (_get_opts(@h_order)) {
-					printf ("%-10s\t%s\n", $_, $h_order{$_}->{desc});
+					printf "%-14s%s %s\n", $_,
+						($_ eq $s_order ? str_col("bold blue","*") : " "),
+						$h_order{$_}->{desc};
 				}
-				say "\n--repo:";
+				say "\n$B{'--repo'}:";
 				for (_get_opts(@h_repo)) {
-					printf ("%-10s\t%s\n", $_, $h_repo{$_}->{desc});
+					printf "%-14s%s %s\n", $_,
+						($_ eq $s_repo ? str_col("bold blue","*") : " "),
+						$h_repo{$_}->{desc};
 				}
 				exit 0;
 			}
