@@ -10,6 +10,7 @@
 use warnings;
 use strict;
 use 5.010;
+use IO::Handle;
 use Term::ANSIColor;
 use LWP::UserAgent;
 use URI::Escape;
@@ -379,10 +380,12 @@ sub parse_and_print {
 			str_col("magenta",$key);
 	}
 	if ($result_counter == 10) {
+		# flush standard output so message below doesn't show in a random place
+		STDOUT->flush;
 		my $msg = "The number of items sent by the server equals the ";
 		$msg .= "server-side limit of 10.\nIf there are more results, ";
 		$msg .= "they were omitted.";
-		say str_col("bold yellow", "\n* "),
+		say STDERR str_col("bold yellow", "\n* "),
 			$quiet_mode ? $msg : str_col("bold", $msg);
 	}
 	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
