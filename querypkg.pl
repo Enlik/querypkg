@@ -19,28 +19,36 @@ use JSON::XS;
 # options (mostly API options):
 # note: those "API keys" mean "input" or "output" API related things
 # arrays to preserve order as specified, hashes are below
-my @h_arch = (	amd64 => { API => 'amd64', desc => 'amd64' },
-				x86 => { API => 'x86', desc => 'x86' } );
-				# "arch" if Portage selected: hard-coded in make_URI
-my @h_type = (	pkg => { API => 'pkg', desc => 'package search' },
-				desc => { API => 'desc', desc => 'description' },
-				path => { API => '', desc => 'path', prepend => 1 },
-				use => { API => 'u:', desc => 'USE flag', prepend => 1},
-				lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
-				match => { API => 'match', desc => 'package matching' },
-				set => { API => '@', desc => 'package set, for example @xfce', prepend => 1 } );
-my @h_order = ( alph => { API => 'alphabet', desc => 'alphabetically' },
-				vote => { API => 'vote', desc => 'by votes' },
-				downloads => { API => 'downloads', desc => 'by downloads' },
-				size => { API => '', desc => 'by size' },
-				date => { API => '', desc => 'by "date" field' }, );
-my @h_repo = (	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
-				limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
-				p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
-				psl => { API => 'portage', desc => 'Sabayon overlay', source => 1 },
-				pg => { API => 'portage', desc => 'Portage' , source => 1 } );
-				# since number of results is limited, I think "all" is useless (and see "note" below)
-				#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' } );
+my @h_arch = (
+	amd64 => { API => 'amd64', desc => 'amd64' },
+	x86 => { API => 'x86', desc => 'x86' }
+	# "arch" if Portage selected: hard-coded in make_URI
+);
+my @h_type = (
+	pkg => { API => 'pkg', desc => 'package search' },
+	desc => { API => 'desc', desc => 'description' },
+	path => { API => '', desc => 'path', prepend => 1 },
+	use => { API => 'u:', desc => 'USE flag', prepend => 1},
+	lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
+	match => { API => 'match', desc => 'package matching' },
+	set => { API => '@', desc => 'package set, for example @xfce', prepend => 1 }
+);
+my @h_order = (
+	alph => { API => 'alphabet', desc => 'alphabetically' },
+	vote => { API => 'vote', desc => 'by votes' },
+	downloads => { API => 'downloads', desc => 'by downloads' },
+	size => { API => '', desc => 'by size' },
+	date => { API => '', desc => 'by "date" field' }
+);
+my @h_repo = (
+	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
+	limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
+	p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
+	psl => { API => 'portage', desc => 'Sabayon overlay', source => 1 },
+	pg => { API => 'portage', desc => 'Portage' , source => 1 }
+	# since number of results is limited, I think "all" is useless (and see "note" below)
+	#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' }
+);
 
 my %h_arch = @h_arch;
 my %h_type = @h_type;
@@ -160,10 +168,11 @@ sub _pnt_spm_atom {
 	if ($opts{quiet}) {
 		$str .= "(" if $opts{foreign};
 		$str .= $atom;
-		$str .= $opts{foreign} ? str_col("bold red", "::") : str_col("bold green", "::");
+		$str .=
+			$opts{foreign}
+			? str_col("bold red", "::")
+			: str_col("bold green", "::");
 		$str .= str_col("blue",$spm_repo);
-		#$str .= str_col("bold blue", "::");
-		#$str .= $opts{foreign} ? str_col("red", $spm_repo) : str_col("green", $spm_repo);
 		$str .= ")" if $opts{foreign};
 	}
 	else {
@@ -339,7 +348,8 @@ sub parse_and_print {
 			}
 			given ($item->{id}) {
 				when ("details") {
-					$meta_items{details} = "http://packages.sabayon.org" . $item->{url};
+					$meta_items{details} =
+						"http://packages.sabayon.org" . $item->{url};
 				}
 				when ("homepage") {
 					$meta_items{homepage} = $item->{url};
@@ -358,19 +368,25 @@ sub parse_and_print {
 		else {
 			next if $repo_cur_foreign_p; # don't print properties
 			_pnt_prop("Arch:", "bold blue", $el->{arch});
-			_pnt_prop("Revision:", "bold blue", $el->{revision}) unless $repo_cur_p;
+			_pnt_prop("Revision:", "bold blue", $el->{revision})
+				unless $repo_cur_p;
 			_pnt_prop("Slot:", "bold blue", $el->{slot});
-			_pnt_prop("Size:", "bold blue", $el->{size}) unless $repo_cur_p;
-			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads}) unless $repo_cur_p;
-			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote}) unless $repo_cur_p;
+			_pnt_prop("Size:", "bold blue", $el->{size})
+				unless $repo_cur_p;
+			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads})
+				unless $repo_cur_p;
+			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote})
+				unless $repo_cur_p;
 			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
 			_pnt_prop("Homepage", "yellow", $meta_items{homepage} // "(null)");
 			_pnt_prop_wrap("Description:", "magenta", $el->{description});
 			_pnt_prop("Date:", "bold blue", $el->{date});
 			_pnt_prop("License:", "cyan", $el->{license});
 			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
-			_pnt_prop("Repository:", "bold blue", $el->{repository_id}) if $s_repo eq "all";
-			_pnt_prop ("Details page:", "underline", $meta_items{details} // "(URL unknown)")
+			_pnt_prop("Repository:", "bold blue", $el->{repository_id})
+				if $s_repo eq "all";
+			_pnt_prop ("Details page:", "underline",
+					$meta_items{details} // "(URL unknown)")
 				if ($print_details_url);
 		}
 	}
@@ -388,7 +404,8 @@ sub parse_and_print {
 		say STDERR str_col("bold yellow", "\n* "),
 			$quiet_mode ? $msg : str_col("bold", $msg);
 	}
-	say str_col("yellow", "\nalternative ways to search packages: use equo (equo search,\n",
+	say str_col("yellow",
+		"\nalternative ways to search packages: use equo (equo search,\n",
 		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
 }
 
