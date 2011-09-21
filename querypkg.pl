@@ -472,8 +472,8 @@ sub parse_cmdline {
 					$s_arch = $arg;
 				}
 				else {
-					say STDERR "Wrong parameters after --arch." ,
-						"Currently selected is $s_arch.";
+					say STDERR "Wrong parameter after --arch. Correct " ,
+						"parameters: ", (join ", ",_get_opts(@h_arch)), ".";
 					$params_ok = 0;
 				}
 			}
@@ -483,8 +483,8 @@ sub parse_cmdline {
 					$s_order = $arg;
 				}
 				else {
-					say STDERR "Wrong parameters after --order.\n" ,
-						"Currently selected is $s_order.";
+					say STDERR "Wrong parameter after --order. Correct " ,
+						"parameters: ", (join ", ",_get_opts(@h_order)), ".";
 					$params_ok = 0;
 				}
 			}
@@ -494,8 +494,8 @@ sub parse_cmdline {
 					$s_type = $arg;
 				}
 				else {
-					say STDERR "Wrong parameters after --type.\n" ,
-						"Currently selected is $s_type.";
+					say STDERR "Wrong parameter after --type. Correct " ,
+						"parameters: ", (join ", ",_get_opts(@h_type)), ".";
 					$params_ok = 0;
 				}
 			}
@@ -505,8 +505,8 @@ sub parse_cmdline {
 					$s_repo = $arg;
 				}
 				else {
-					say STDERR "Wrong parameters after --repo.\n" ,
-						"Currently selected is $s_repo.";
+					say STDERR "Wrong parameter after --repo. Correct " ,
+						"parameters: ", (join ", ",_get_opts(@h_repo)), ".";
 					$params_ok = 0;
 				}
 			}
