@@ -439,51 +439,7 @@ sub parse_cmdline {
 	while (my $arg = shift) {
 		given ($arg) {
 			when(["--help", "-h"]) {
-				my ($arch_opts, $type_opts, $order_opts, $repo_opts);
-				$arch_opts = join "|",_get_opts(@h_arch);
-				$type_opts = join "|",_get_opts(@h_type);
-				$order_opts = join "|",_get_opts(@h_order);
-				$repo_opts = join "|",_get_opts(@h_repo);
-				# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
-				my %B = map { $_ => str_col("bold blue", $_) }
-					qw(keyword -q --quiet -u --arch --order --type --repo
-					--show --color --nocolor);
-				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
-					"For interactive use run this script without any parameters.\n" ,
-					"  Usage:\n" ,
-					"\t<$B{'keyword'}> [$B{'-q'}|$B{'--quiet'}] [$B{'-u'}]\n" ,
-					"\t[$B{'--arch'} $arch_opts] [$B{'--order'} $order_opts]\n" ,
-					"\t[$B{'--type'} $type_opts] [$B{'--repo'} $repo_opts]\n" ,
-					"  Additional options: $B{'--color'} - enable colorized ",
-					"output (default), " ,
-					"$B{'--nocolor'} - disable colorized output, ",
-					"$B{'--quiet'}/$B{'-q'} - produce less output, ",
-					"$B{'-u'} - print URL to get package details, ",
-					"$B{'--show'} <prop[,prop2 ...]> - specify properties to show.\n",
-					"  example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin\n" ,
-					"  order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size\n",
-					"  usage of $B{'--show'}: $0 pidgin $B{'--show'} desc,vo ",
-					"(arguments should match the whole property name or its beginning, ",
-					"for example \"vote\" or \"vo\")\n";
-				say "  default option is marked with an asterisk; default arch: $s_arch";
-				say "$B{'--type'}:";
-				for (_get_opts(@h_type)) {
-					printf "%-14s%s %s\n", $_,
-						($_ eq $s_type ? str_col("bold blue","*") : " "),
-						$h_type{$_}->{desc};
-				}
-				say "\n$B{'--order'}:";
-				for (_get_opts(@h_order)) {
-					printf "%-14s%s %s\n", $_,
-						($_ eq $s_order ? str_col("bold blue","*") : " "),
-						$h_order{$_}->{desc};
-				}
-				say "\n$B{'--repo'}:";
-				for (_get_opts(@h_repo)) {
-					printf "%-14s%s %s\n", $_,
-						($_ eq $s_repo ? str_col("bold blue","*") : " "),
-						$h_repo{$_}->{desc};
-				}
+				display_help();
 				exit 0;
 			}
 			when ("--arch") {
@@ -759,6 +715,60 @@ sub interactive_ui {
 }
 
 ######## UI helpers ########
+
+# this one used only with command line UI
+sub display_help {
+	my ($arch_opts, $type_opts, $order_opts, $repo_opts);
+	$arch_opts = join "|",_get_opts(@h_arch);
+	$type_opts = join "|",_get_opts(@h_type);
+	$order_opts = join "|",_get_opts(@h_order);
+	$repo_opts = join "|",_get_opts(@h_repo);
+	# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
+	my %B = map { $_ => str_col("bold blue", $_) }
+		qw(keyword -q --quiet -u --arch --order --type --repo --show
+		--color --nocolor);
+	my $helpstr =<<END;
+	This is a Perl script to query packages using packages.sabayon.org.
+	For interactive use run this script without any parameters.
+	Usage:
+	\t<$B{'keyword'}> [$B{'-q'}|$B{'--quiet'}] [$B{'-u'}]
+	\t[$B{'--arch'} $arch_opts] [$B{'--order'} $order_opts]
+	\t[$B{'--type'} $type_opts] [$B{'--repo'} $repo_opts]
+	Additional options: $B{'--color'} - enable colorized output (default),_no_nl_
+	$B{'--nocolor'} - disable colorized output,_no_nl_
+	$B{'--quiet'}/$B{'-q'} - produce less output,_no_nl_
+	$B{'-u'} - print URL to get package details,_no_nl_
+	$B{'--show'} <prop[,prop2 ...]> - specify properties to show.
+
+	example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin
+	order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size
+	usage of $B{'--show'}: $0 pidgin $B{'--show'} desc,vo
+	  (arguments to $B{'--show'} should match the whole property name or its
+	  beginning, for example "vote" or "vo")
+END
+	$helpstr =~ s/^\t//gm;
+	$helpstr =~ s/_no_nl_\n/ /g;
+	say $helpstr;
+	say "  default option is marked with an asterisk; default arch: $s_arch";
+	say "$B{'--type'}:";
+	for (_get_opts(@h_type)) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_type ? str_col("bold blue","*") : " "),
+			$h_type{$_}->{desc};
+	}
+	say "\n$B{'--order'}:";
+	for (_get_opts(@h_order)) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_order ? str_col("bold blue","*") : " "),
+			$h_order{$_}->{desc};
+	}
+	say "\n$B{'--repo'}:";
+	for (_get_opts(@h_repo)) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_repo ? str_col("bold blue","*") : " "),
+			$h_repo{$_}->{desc};
+	}
+}
 
 sub str_col {
 	my $col = shift or return "";
