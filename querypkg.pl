@@ -66,6 +66,7 @@ my $branch = "5"; # not used on Portage search
 my $use_colour = (-t STDOUT);
 my $quiet_mode = 0;
 my $print_details_url = 0;
+my @display_prop = (); # what properties to display; all if empty
 
 # set options and the search $key
 my $key;
@@ -200,25 +201,39 @@ sub _pnt_atom_name {
 	}
 }
 
+sub __want_this_prop {
+	if (@display_prop) {
+		my $prop = shift;
+		$prop = lc $prop;
+		for (@display_prop) {
+			return 1 if index ($prop, $_) == 0;
+		}
+		return 0;
+	}
+	return 1;
+}
+
 sub _pnt_prop {
-	my $desc = shift;
-	my $color = shift;
 	my $prop = shift;
-	my $len = length $desc;
+	return unless __want_this_prop ($prop);
+	my $color = shift;
+	my $text = shift;
+	my $len = length $prop;
 	my $pad = $len > 15 ? 15 : 15 - $len;
-	say str_col("green",">>")," "x9, str_col("green",$desc),
-			" "x$pad, str_col($color,$prop);
+	say str_col("green",">>")," "x9, str_col("green",$prop),
+			" "x$pad, str_col($color,$text);
 }
 
 sub _pnt_prop_wrap {
-	my $desc = shift;
-	my $color = shift;
 	my $prop = shift;
-	my $len = length $desc;
+	return unless __want_this_prop ($prop);
+	my $color = shift;
+	my $text = shift;
+	my $len = length $prop;
 	my $WIDTH = 80;
 	my $pad = $len > 15 ? 15 : 15 - $len;
 
-	my $textlen = length $prop;
+	my $textlen = length $text;
 	# $indent = space on the beginning of a line
 	my $indent = 2 + $len + 9 + $pad;
 	#my $indenttext =  " " x $indent;
@@ -226,13 +241,13 @@ sub _pnt_prop_wrap {
 	my $widthavail = $WIDTH - $indent;
 	my $outtext;
 	if ($textlen <= $widthavail) {
-		$outtext = str_col($color,$prop);
+		$outtext = str_col($color,$text);
 	}
 	else {
 		my $line = "";
 		my @lines = ();
 		my $cur_widthavail = $widthavail;
-		for my $word (split /\s/, $prop) {
+		for my $word (split /\s/, $text) {
 			A_LABEL:
 			if (length $word < $cur_widthavail) {
 				$line .= $word . " ";
@@ -269,7 +284,7 @@ sub _pnt_prop_wrap {
 		$outtext = join $indenttext,(map { str_col($color,$_) } @lines);
 	}
 
-	say str_col("green",">>")," "x9, str_col("green",$desc),
+	say str_col("green",">>")," "x9, str_col("green",$prop),
 			" "x$pad, $outtext; #str_col($color,$outtext);
 }
 
@@ -431,7 +446,8 @@ sub parse_cmdline {
 				$repo_opts = join "|",_get_opts(@h_repo);
 				# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
 				my %B = map { $_ => str_col("bold blue", $_) }
-					qw(keyword -q --quiet -u --arch --order --type --repo --color --nocolor);
+					qw(keyword -q --quiet -u --arch --order --type --repo
+					--show --color --nocolor);
 				say "This is a Perl script to query packages using packages.sabayon.org.\n" ,
 					"For interactive use run this script without any parameters.\n" ,
 					"  Usage:\n" ,
@@ -442,10 +458,14 @@ sub parse_cmdline {
 					"output (default), " ,
 					"$B{'--nocolor'} - disable colorized output, ",
 					"$B{'--quiet'}/$B{'-q'} - produce less output, ",
-					"$B{'-u'} - print URL to get package details.\n",
+					"$B{'-u'} - print URL to get package details, ",
+					"$B{'--show'} <prop[,prop2 ...]> - specify properties to show.\n",
 					"  example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin\n" ,
-					"  order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size\n";
-				say " default option is marked with an asterisk; default arch: $s_arch";
+					"  order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size\n",
+					"  usage of $B{'--show'}: $0 pidgin $B{'--show'} desc,vo ",
+					"(arguments should match the whole property name or its beginning, ",
+					"for example \"vote\" or \"vo\")\n";
+				say "  default option is marked with an asterisk; default arch: $s_arch";
 				say "$B{'--type'}:";
 				for (_get_opts(@h_type)) {
 					printf "%-14s%s %s\n", $_,
@@ -510,6 +530,22 @@ sub parse_cmdline {
 					$params_ok = 0;
 				}
 			}
+			when ("--show") {
+				# "--show ," works as if no --show option provided
+				# we don't check for it
+				# --show invocations are cumulative (it may change)
+				$arg = shift;
+				if (defined $arg) {
+					for (split ',', $arg) {
+						push @display_prop, lc($_) if length $_;
+					}
+				}
+				else {
+					say STDERR "No option for --show provided.";
+					$params_ok = 0;
+					last;
+				}
+			}
 			when ("--color") {
 				$use_colour = 1;
 			}
@@ -546,6 +582,10 @@ sub parse_cmdline {
 				" begins with a `-' character.\n  Maybe you gave an unknown ",
 				"parameter and it was interpreted as search term?";
 		}
+	}
+
+	if ($quiet_mode and @display_prop) {
+		say STDERR "- Option --show is ignored because --quiet was used too."
 	}
 
 	if (length $key < 3 or length $key > 64) {
@@ -619,6 +659,7 @@ sub interactive_ui {
 		"(for example, 1<enter> to change architecture type).\n",
 		"Note: invoke this script with -h or --help for help on non-interactive usage.";
 
+	my $display_prop = "";
 	while (1) {
 		say "\n[1] arch: $s_arch (x86, amd64)\n",
 			"[2] search type: $s_type (", $h_type{$s_type}->{desc}, ")\n",
@@ -628,6 +669,7 @@ sub interactive_ui {
 			"[t] quiet: " . ($quiet_mode ? "enabled" : "disabled") . "\n",
 			"[u] print URL to get package details: " .
 				($print_details_url ? "enabled" : "disabled") . "\n",
+			"[p] properties to print: " . ( $display_prop || "all" ) . "\n",
 			"[q] quit\n",
 			"(any other) continue";
 		$key = <STDIN>;
@@ -658,6 +700,25 @@ sub interactive_ui {
 			}
 			when ("u") {
 				$print_details_url = !$print_details_url;
+			}
+			when ("p") {
+				say "type what properties you want to print (ignored when ",
+					"in quiet mode)";
+				say "arguments should match the whole property name or its ",
+					"beginning; for example \"vote\" or \"vo\"";
+				say "arguments are comma separated, example: vote,desc";
+				print "> ";
+				$display_prop = <STDIN>;
+				chomp ($display_prop);
+				# "properties to print: all" means "all", so let it be the other
+				# way round too
+				$display_prop = "" if $display_prop eq "all";
+				$display_prop =~ s/, /,/g;
+				@display_prop = ();
+				for (split ',', $display_prop) {
+					push @display_prop, lc($_) if length $_;
+				}
+				$display_prop = join ", ", @display_prop;
 			}
 			when ("q") {
 				say "Bye!";
