@@ -21,7 +21,8 @@ use JSON::XS;
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (
 	amd64 => { API => 'amd64', desc => 'amd64' },
-	x86 => { API => 'x86', desc => 'x86' }
+	x86 => { API => 'x86', desc => 'x86' },
+	arm => { API => 'armv7l', desc => 'armv7l' }
 	# "arch" if Portage selected: hard-coded in make_URI
 );
 my @h_type = (
@@ -42,6 +43,8 @@ my @h_order = (
 );
 my @h_repo = (
 	sl => { API => 'sabayonlinux.org', desc => 'sabayonlinux.org (Sabayon repository)' },
+	we => { API => 'sabayon-weekly',
+		desc => 'sabayon-weekly (default repository for main/official releases)' },
 	limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
 	p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
 	psl => { API => 'portage', desc => 'Sabayon overlay', source => 1 },
@@ -617,7 +620,9 @@ sub interactive_ui {
 
 	my $display_prop = "";
 	while (1) {
-		say "\n[1] arch: $s_arch (x86, amd64)\n",
+		say "\n[1] arch: $s_arch [" .
+				join (", ", map { $h_arch{$_}->{desc} } _get_opts(@h_arch)) .
+				"]\n",
 			"[2] search type: $s_type (", $h_type{$s_type}->{desc}, ")\n",
 			"[3] order: $s_order (", $h_order{$s_order}->{desc}, ")\n",
 			"[4] repository: " . $h_repo{$s_repo}->{desc} . "\n",
