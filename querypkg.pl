@@ -422,9 +422,11 @@ sub parse_and_print {
 		say STDERR str_col("bold yellow", "\n* "),
 			$quiet_mode ? $msg : str_col("bold", $msg);
 	}
-	say str_col("yellow",
-		"\nalternative ways to search packages: use equo (equo search,\n",
-		"equo match, ...), Sulfur or visit http://packages.sabayon.org");
+	unless (@display_prop) {
+		say str_col("yellow",
+			"\nalternative ways to search packages: use equo (equo search,\n",
+			"equo match, ...), Sulfur or visit http://packages.sabayon.org");
+	}
 }
 
 
