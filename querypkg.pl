@@ -843,12 +843,20 @@ sub comp_size {
 	}
 
 	given($a_rest) {
-		$a_num *= 1024 when ("MB");
-		$a_num *= 1048576 when ("GB"); # what?
+		when ("MB") {
+			$a_num *= 1024
+		}
+		when ("GB") {
+			$a_num *= 1048576
+		}
 	}
 	given($b_rest) {
-		$b_num *= 1024 when ("MB");
-		$b_num *= 1048576 when ("GB");
+		when ("MB") {
+			$b_num *= 1024
+		}
+		when ("GB") {
+			$b_num *= 1048576
+		}
 	}
 	return $a_num <=> $b_num;
 }
