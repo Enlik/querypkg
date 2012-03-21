@@ -130,7 +130,7 @@ sub get_data {
 	}
 	else {
 		my $ua = LWP::UserAgent->new;
-		$ua->timeout(15);
+		$ua->timeout(20);
 		$ua->env_proxy;
 
 		unless ($quiet_mode) {
