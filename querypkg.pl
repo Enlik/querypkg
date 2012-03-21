@@ -150,18 +150,20 @@ sub get_data {
 
 ######## parse_and_print ########
 
+# Prints without '\n'.
 sub _pnt_pkg {
 	my $atom = shift;
 	my $quiet = shift;
 	if ($quiet) {
-		say $atom;
+		print $atom;
 	}
 	else {
-		say str_col("green",">>      "), str_col("bold red","@@ Package: "),
+		print str_col("green",">>      "), str_col("bold red","@@ Package: "),
 			str_col("bold",$atom);
 	}
 }
 
+# Prints without '\n'.
 sub _pnt_spm_atom {
 	my $atom = shift;
 	my %opts = @_; # quiet, foreign, source = 1, spm_repo
@@ -190,10 +192,10 @@ sub _pnt_spm_atom {
 		}
 		$str .= ")" if $opts{foreign};
 	}
-	say $str;
+	print $str;
 }
 
-sub _pnt_atom_name {
+sub pnt_atom_name {
 	my $atom = shift;
 	my %opts = @_; # booleans: quiet, foreign, source; string: spm_repo
 	if ($opts{source}) {
@@ -202,9 +204,10 @@ sub _pnt_atom_name {
 	else {
 		_pnt_pkg ($atom, $opts{quiet});
 	}
+	print "\n" unless $opts{quiet};
 }
 
-sub __want_this_prop {
+sub _want_this_prop {
 	if (@display_prop) {
 		my $prop = shift;
 		$prop = lc $prop;
@@ -216,22 +219,36 @@ sub __want_this_prop {
 	return 1;
 }
 
-sub _pnt_prop {
+sub pnt_prop {
 	my $prop = shift;
-	return unless __want_this_prop ($prop);
-	my $color = shift;
-	my $text = shift;
-	my $len = length $prop;
-	my $pad = $len > 15 ? 15 : 15 - $len;
-	say str_col("green",">>")," "x9, str_col("green",$prop),
+	my ($color, $text, %opts) = @_; # %opts: quiet, want_this
+	return unless $opts{want_this} || _want_this_prop ($prop);
+
+	if ($opts{quiet}) {
+		return unless @display_prop;
+		print STDOUT str_col ("cyan", " {"), $prop, str_col($color, $text),
+			str_col ("cyan", "}");
+	}
+	else {
+		my $len = length $prop;
+		my $pad = $len > 15 ? 15 : 15 - $len;
+		say str_col("green",">>")," "x9, str_col("green",$prop),
 			" "x$pad, str_col($color,$text);
+	}
 }
 
-sub _pnt_prop_wrap {
+sub pnt_prop_wrap {
 	my $prop = shift;
-	return unless __want_this_prop ($prop);
-	my $color = shift;
-	my $text = shift;
+	return unless _want_this_prop ($prop);
+	my ($color, $text, %opts) = @_; # %opts: quiet
+
+	if ($opts{quiet}) {
+		return unless @display_prop;
+		print STDOUT str_col ("cyan", " {"), $prop, str_col($color, $text),
+			str_col ("cyan", "}");
+		return;
+	}
+
 	my $len = length $prop;
 	my $WIDTH = 80;
 	my $pad = $len > 15 ? 15 : 15 - $len;
@@ -289,6 +306,11 @@ sub _pnt_prop_wrap {
 
 	say str_col("green",">>")," "x9, str_col("green",$prop),
 			" "x$pad, $outtext; #str_col($color,$outtext);
+}
+
+sub pnt_prop_finish {
+	my $quiet_mode = shift;
+	print "\n" if $quiet_mode;
 }
 
 sub parse_and_print {
@@ -375,38 +397,73 @@ sub parse_and_print {
 			}
 		}
 
-		_pnt_atom_name($el->{atom},
+		pnt_atom_name($el->{atom},
 			quiet => $quiet_mode, foreign => $repo_cur_foreign_p,
 			source => $repo_cur_p, spm_repo => $el->{spm_repo});
 
-		if ($quiet_mode) {
-			say " ", ($meta_items{details} // "(URL unknown)"), "\n"
-				if ($print_details_url);
+		next if $repo_cur_foreign_p; # don't print properties
+
+		pnt_prop("Arch:", "bold blue", $el->{arch},
+			quiet => $quiet_mode);
+
+		unless ($repo_cur_p) {
+			pnt_prop("Revision:", "bold blue", $el->{revision},
+				quiet => $quiet_mode)
 		}
-		else {
-			next if $repo_cur_foreign_p; # don't print properties
-			_pnt_prop("Arch:", "bold blue", $el->{arch});
-			_pnt_prop("Revision:", "bold blue", $el->{revision})
-				unless $repo_cur_p;
-			_pnt_prop("Slot:", "bold blue", $el->{slot});
-			_pnt_prop("Size:", "bold blue", $el->{size})
-				unless $repo_cur_p;
-			_pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads})
-				unless $repo_cur_p;
-			_pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote})
-				unless $repo_cur_p;
-			_pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)");
-			_pnt_prop("Homepage", "yellow", $meta_items{homepage} // "(null)");
-			_pnt_prop_wrap("Description:", "magenta", $el->{description});
-			_pnt_prop("Date:", "bold blue", $el->{date});
-			_pnt_prop("License:", "cyan", $el->{license});
-			_pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A");
-			_pnt_prop("Repository:", "bold blue", $el->{repository_id})
-				if $s_repo eq "all";
-			_pnt_prop ("Details page:", "underline",
-					$meta_items{details} // "(URL unknown)")
-				if ($print_details_url);
+
+		pnt_prop("Slot:", "bold blue", $el->{slot},
+			quiet => $quiet_mode);
+
+		unless ($repo_cur_p) {
+			pnt_prop("Size:", "bold blue", $el->{size},
+				quiet => $quiet_mode)
 		}
+
+		unless ($repo_cur_p) {
+			pnt_prop("Downloads:", "bold blue", $el->{ugc}->{downloads},
+				quiet => $quiet_mode)
+		}
+
+		unless ($repo_cur_p) {
+			pnt_prop("Vote:", "bold blue", $el->{ugc}->{vote},
+				quiet => $quiet_mode)
+		}
+
+		pnt_prop("spm_repo:", "bold blue", $el->{spm_repo} // "(null)",
+			quiet => $quiet_mode);
+
+		pnt_prop("Homepage:", "yellow", $meta_items{homepage} // "(null)",
+			quiet => $quiet_mode);
+
+		pnt_prop_wrap("Description:", "magenta", $el->{description},
+			quiet => $quiet_mode);
+
+		pnt_prop("Date:", "bold blue", $el->{date},
+			quiet => $quiet_mode);
+
+		pnt_prop("License:", "cyan", $el->{license},
+			quiet => $quiet_mode);
+
+		pnt_prop_wrap("Last change:", "bold blue", $el->{change} // "N/A",
+			quiet => $quiet_mode);
+
+		if ($s_repo eq "all") {
+			pnt_prop("Repository:", "bold blue", $el->{repository_id},
+				quiet => $quiet_mode)
+		}
+
+		if ($print_details_url) {
+			if ($quiet_mode) {
+				say "\n ", ($meta_items{details} // "(URL unknown)");
+			}
+			else {
+				pnt_prop ("Details page:", "underline",
+					$meta_items{details} // "(URL unknown)",
+					want_this => 1)
+			}
+		}
+
+		pnt_prop_finish ($quiet_mode);
 	}
 
 	unless ($quiet_mode) {
@@ -422,7 +479,7 @@ sub parse_and_print {
 		say STDERR str_col("bold yellow", "\n* "),
 			$quiet_mode ? $msg : str_col("bold", $msg);
 	}
-	unless (@display_prop) {
+	if (!$quiet_mode && @display_prop == 0) {
 		say str_col("yellow",
 			"\nalternative ways to search packages: use equo (equo search,\n",
 			"equo match, ...), Sulfur or visit http://packages.sabayon.org");
@@ -545,10 +602,6 @@ sub parse_cmdline {
 		}
 	}
 
-	if ($quiet_mode and @display_prop) {
-		say STDERR "- Option --show is ignored because --quiet was used too."
-	}
-
 	if (length $key < 3 or length $key > 64) {
 		say STDERR "- Search term should contain no less than three ",
 			"and no more than sixty four letters.";
@@ -665,8 +718,7 @@ sub interactive_ui {
 				$print_details_url = !$print_details_url;
 			}
 			when ("p") {
-				say "type what properties you want to print (ignored when ",
-					"in quiet mode)";
+				say "type what properties you want to print";
 				say "arguments should match the whole property name or its ",
 					"beginning; for example \"vote\" or \"vo\"";
 				say "arguments are comma separated, example: vote,desc";
