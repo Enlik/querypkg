@@ -226,8 +226,8 @@ sub pnt_prop {
 
 	if ($opts{quiet}) {
 		return unless @display_prop;
-		print STDOUT str_col ("cyan", " {"), $prop, str_col($color, $text),
-			str_col ("cyan", "}");
+		print str_col("cyan", " {"), $prop, str_col($color, $text),
+			str_col("cyan", "}");
 	}
 	else {
 		my $len = length $prop;
@@ -244,8 +244,8 @@ sub pnt_prop_wrap {
 
 	if ($opts{quiet}) {
 		return unless @display_prop;
-		print STDOUT str_col ("cyan", " {"), $prop, str_col($color, $text),
-			str_col ("cyan", "}");
+		print str_col("cyan", " {"), $prop, str_col($color, $text),
+			str_col("cyan", "}");
 		return;
 	}
 
