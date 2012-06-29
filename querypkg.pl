@@ -482,7 +482,7 @@ sub parse_and_print {
 	if (!$quiet_mode && @display_prop == 0) {
 		say str_col("yellow",
 			"\nalternative ways to search packages: use equo (equo search,\n",
-			"equo match, ...), Sulfur or visit http://packages.sabayon.org");
+			"equo match, ...), Rigo or visit http://packages.sabayon.org");
 	}
 }
 
