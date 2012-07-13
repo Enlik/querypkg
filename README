@@ -1,3 +1,28 @@
 A Perl tool to query packages using packages.sabayon.org.
+Run it with --help to see options.
 
 screenshot (v1.13, quiet mode): http://i.imgur.com/By5Az.png
+
+Two console interfaces are available:
+- interactive (when run with no parameters),
+- non-interactive.
+
+
+It can be installed the usual Perl way:
+
+    perl Makefile.PL
+    make
+    make test
+    make install # requires root
+
+alternatively, you can clone the git repository or download needed files
+manually and run this:
+
+    ./querypkg.sh
+
+
+dependencies on Gentoo and friends:
+dev-lang/perl
+dev-perl/JSON-XS
+dev-perl/URI
+dev-perl/libwww-perl

@@ -1,0 +1,436 @@
+#!/usr/bin/env perl
+
+# a simple interface to packages.sabayon.org
+# (C) 2011-2012 by Enlik <poczta-sn at gazeta . pl>
+# license: MIT
+
+use warnings;
+use strict;
+use 5.010;
+use IO::Handle;
+use Term::ANSIColor;
+use App::Querypkg::Core;
+
+my $querypkg = App::Querypkg::Core->new;
+my $use_colour = (-t STDOUT);
+my $quiet_mode = 0;
+my $print_details_url = 0;
+my @display_prop = (); # what properties to display; all if empty
+
+if (@ARGV) {
+	parse_cmdline(@ARGV);
+}
+else {
+	interactive_ui();
+}
+
+unless ($querypkg->get_data()) {
+	say STDERR "Error retrieving data: ", $querypkg->geterr();
+	exit 1;
+}
+
+while (my $data = $querypkg->next_pkg()) {
+	say $data->{atom}
+}
+
+sub parse_cmdline {
+	my $params_ok = 1;
+	my @unknown_with_hyphen = ();
+	my $key;
+
+	while (my $arg = shift) {
+		given ($arg) {
+			when(["--help", "-h"]) {
+				display_help();
+				exit 0;
+			}
+			when ( ["--arch",  "--order", "--type", "--repo"] ) {
+				my $param = $arg;
+				$param =~ s/^--//;
+				$arg = shift;
+				my @opts = $querypkg->get_API_array($param, 1);
+				if( $arg ~~ @opts ) {
+					$querypkg->set_req_params($param => $arg);
+				}
+				else {
+					say STDERR "Wrong parameter after --$param. Correct " ,
+						"parameters: ", (join ", ",@opts), ".";
+					$params_ok = 0;
+				}
+			}
+			when ("--show") {
+				# "--show ," works as if no --show option provided
+				# we don't check for it
+				# --show invocations are cumulative (it may change)
+				$arg = shift;
+				if (defined $arg) {
+					for (split ',', $arg) {
+						push @display_prop, lc($_) if length $_;
+					}
+				}
+				else {
+					say STDERR "No option for --show provided.";
+					$params_ok = 0;
+					last;
+				}
+			}
+			when ("--color") {
+				$use_colour = 1;
+			}
+			when ("--nocolor") {
+				$use_colour = 0;
+			}
+			when (["--quiet", "-q"]) {
+				$quiet_mode = 1;
+			}
+			when ("-u") {
+				$print_details_url = 1;
+			}
+			# key
+			push @unknown_with_hyphen, $arg if $arg =~ /^-/;
+			if (defined $key) {
+				say STDERR "* You can specify only one keyword (at: $arg).";
+				$params_ok = 0;
+				#last;
+			}
+			else {
+				$key = $arg;
+			}
+		}
+	}
+
+	unless (defined $key) {
+		say STDERR "What are you looking for?";
+		$params_ok = 0;
+	}
+
+	unless ( $querypkg->get_req_param('type') eq "use" ) {
+		for (@unknown_with_hyphen) {
+			say STDERR "- Tip: search term ", str_col("yellow",$_),
+				" begins with a `-' character.\n  Maybe you gave an unknown ",
+				"parameter and it was interpreted as search term?";
+		}
+	}
+
+	my $check = $querypkg->package_name_check( $key // "" );
+	if ($check == App::Querypkg::Core::PKG_NAME_TOO_SHORT
+			or $check == App::Querypkg::Core::PKG_NAME_TOO_LONG) {
+		say STDERR "- Search term should contain no less than three ",
+			"and no more than sixty four letters.";
+		exit 1;
+	}
+	elsif ($check != App::Querypkg::Core::PKG_NAME_OK) {
+		say STDERR "Invalid package name: unknown ($check)";
+		exit 1;
+	}
+
+	# additional, own checks
+	unless(package_name_check_and_warn($key)) {
+		$params_ok = 0;
+	}
+
+	unless ($params_ok) {
+		say STDERR "\nSpecify correct parameters. Try -h or --help or run this",
+			" script without any\nparameters for interactive usage. Exiting!";
+		exit 1;
+	}
+
+	$querypkg->make_URI( $key );
+}
+
+# this one used only with command line UI
+sub display_help {
+	# default/currently selected values
+	my $s_arch  = $querypkg->get_req_param('arch');
+	my $s_type  = $querypkg->get_req_param('type');
+	my $s_order = $querypkg->get_req_param('order');
+	my $s_repo  = $querypkg->get_req_param('repo');
+
+	my %h_type  = $querypkg->get_API_array('type');
+	my %h_order = $querypkg->get_API_array('order');
+	my %h_repo  = $querypkg->get_API_array('repo');
+
+	my @arch_opts  = $querypkg->get_API_array('arch', 1);
+	my @type_opts  = $querypkg->get_API_array('type', 1);
+	my @order_opts = $querypkg->get_API_array('order', 1);
+	my @repo_opts  = $querypkg->get_API_array('repo', 1);
+
+	my $arch_opts  = join "|",@arch_opts;
+	my $type_opts  = join "|",@type_opts;
+	my $order_opts = join "|",@order_opts;
+	my $repo_opts  = join "|",@repo_opts;
+
+	# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
+	my %B = map { $_ => str_col("bold blue", $_) }
+		qw(keyword -q --quiet -u --arch --order --type --repo --show
+		--color --nocolor);
+	my $helpstr =<<END;
+	This is a Perl script to query packages using packages.sabayon.org.
+	For interactive use run this script without any parameters.
+	Usage:
+	\t<$B{'keyword'}> [$B{'-q'}|$B{'--quiet'}] [$B{'-u'}]
+	\t[$B{'--arch'} $arch_opts] [$B{'--order'} $order_opts]
+	\t[$B{'--type'} $type_opts] [$B{'--repo'} $repo_opts]
+	Additional options: $B{'--color'} - enable colorized output (default),_no_nl_
+	$B{'--nocolor'} - disable colorized output,_no_nl_
+	$B{'--quiet'}/$B{'-q'} - produce less output,_no_nl_
+	$B{'-u'} - print URL to get package details,_no_nl_
+	$B{'--show'} <prop[,prop2 ...]> - specify properties to show.
+
+	example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin
+	order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size
+	usage of $B{'--show'}: $0 pidgin $B{'--show'} desc,vo
+	  (arguments to $B{'--show'} should match the whole property name or its
+	  beginning, for example "vote" or "vo")
+END
+	$helpstr =~ s/^\t//gm;
+	$helpstr =~ s/_no_nl_\n/ /g;
+	say $helpstr;
+	say "  default option is marked with an asterisk; default arch: $s_arch";
+	say "$B{'--type'}:";
+	for (@type_opts) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_type ? str_col("bold blue","*") : " "),
+			$h_type{$_}->{desc};
+	}
+	say "\n$B{'--order'}:";
+	for (@order_opts) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_order ? str_col("bold blue","*") : " "),
+			$h_order{$_}->{desc};
+	}
+	say "\n$B{'--repo'}:";
+	for (@repo_opts) {
+		printf "%-14s%s %s\n", $_,
+			($_ eq $s_repo ? str_col("bold blue","*") : " "),
+			$h_repo{$_}->{desc};
+	}
+}
+
+sub interactive_ui {
+	say "Hello! This is a Perl script to query packages using packages.sabayon.org.\n",
+		"Type a number or letter and enter to change any of these settings\n",
+		"(for example, 1<enter> to change architecture type).\n",
+		"Note: invoke this script with -h or --help for help on non-interactive usage.";
+
+	my @arch_opts  = $querypkg->get_API_array('arch', 1);
+
+	my ($s_arch, $s_type, $s_order);
+	my ($type_desc, $order_desc, $repo_desc);
+
+	my %h_arch  = $querypkg->get_API_array('arch');
+	my $fmt = sub {
+		my ($key, $name, $desc) = @_;
+		if (defined $desc) {
+			$key = "[$key]";
+			$name = "$name:";
+		}
+		say
+			str_col( "bold", "  " . $key ),
+			str_col( "green", " " . $name ),
+			defined $desc ? " " . str_col( "bold blue", $desc ) : ""
+	};
+
+	my $display_prop = "";
+	my $key;
+	while (1) {
+		$s_arch  = $querypkg->get_req_param('arch');
+		$s_type  = $querypkg->get_req_param('type');
+		$s_order = $querypkg->get_req_param('order');
+
+		$type_desc  = $querypkg->get_API_sel( 'type' )->{desc};
+		$order_desc = $querypkg->get_API_sel( 'order' )->{desc};
+		$repo_desc  = $querypkg->get_API_sel( 'repo' )->{desc};
+
+		say "";
+		$fmt->( '1', "arch",
+			"$s_arch [" .
+			join (", ", map { $h_arch{$_}->{desc} } @arch_opts) .
+			"]" );
+		$fmt->( '2', "search type", "$s_type ($type_desc)" );
+		$fmt->( '3', "order", "$s_order ($order_desc)" );
+		$fmt->( '4', "repository", $repo_desc );
+		$fmt->( 'c', "color", $use_colour ? "enabled" : "disabled" );
+		$fmt->( 't', "quiet", $quiet_mode ? "enabled" : "disabled" );
+		$fmt->( 'u', "print URL to get package details",
+			$print_details_url ? "enabled" : "disabled" );
+		$fmt->( 'p', "properties to print", $display_prop || "all" );
+		$fmt->( '[q]', "quit" );
+		$fmt->( '(any other)', "continue" );
+
+		$key = <STDIN>;
+		chomp $key;
+		say "";
+		given ($key) {
+			when ("1") {
+				say "select architecture:";
+				pnt_set_opt('arch', 0);
+			}
+			when ("2") {
+				say "select search type:";
+				pnt_set_opt('type', 0);
+			}
+			when ("3") {
+				say "select sort order:";
+				pnt_set_opt('order', 1);
+			}
+			when ("4") {
+				say "select repository:";
+				pnt_set_opt('repo', 0);
+			}
+			when ("c") {
+				$use_colour = !$use_colour;
+			}
+			when ("t") {
+				$quiet_mode = !$quiet_mode;
+			}
+			when ("u") {
+				$print_details_url = !$print_details_url;
+			}
+			when ("p") {
+				say "type what properties you want to print";
+				say "arguments should match the whole property name or its ",
+					"beginning; for example \"vote\" or \"vo\"";
+				say "arguments are comma separated, example: vote,desc";
+				print "> ";
+				$display_prop = <STDIN>;
+				chomp ($display_prop);
+				# "properties to print: all" means "all", so let it be the other
+				# way round too
+				$display_prop = "" if $display_prop eq "all";
+				$display_prop =~ s/, /,/g;
+				@display_prop = ();
+				for (split ',', $display_prop) {
+					push @display_prop, lc($_) if length $_;
+				}
+				$display_prop = join ", ", @display_prop;
+			}
+			when ("q") {
+				say "Bye!";
+				exit 0;
+			}
+			# default
+			last;
+		}
+	}
+
+	say "What are you looking for? Type your search term.";
+	if (length $key) {
+		say "(If it is $key, just press Enter.)";
+	}
+
+	while (1) {
+		my $new_key = <STDIN>;
+		chomp $new_key;
+		# for "If it is $key, just press Enter." - pressed Enter without typing anything:
+		if (length $new_key == 0) {
+			$new_key = $key;
+			$key = "";
+		}
+		if (length $new_key < 3) {
+			say "Too short! Try again or type Ctrl+C to abort.";
+		}
+		elsif(length $new_key > 64) {
+			say "Too long! Try again or type Ctrl+C to abort.";
+		}
+		elsif (!package_name_check_and_warn($new_key)) {
+			say "Try again or type Ctrl+C to abort.";
+		}
+		else {
+			$key = $new_key;
+			last;
+		}
+	}
+
+	$querypkg->make_URI( $key );
+}
+
+# for interactive UI
+sub pnt_set_opt {
+	my $param = shift or die "no arg!"; # 'arch' etc.
+	my $print_opt = shift; # print option name, too?
+	my $s_tmp = $querypkg->get_req_param( $param );
+	my %h_tmp = $querypkg->get_API_array( $param );
+
+	if ($print_opt) {
+		say "currently selected: ",
+			str_col( "bold green", "$s_tmp (" . $h_tmp{$s_tmp}->{desc} . ")" );
+	}
+	else {
+		say "currently selected: ",
+			str_col( "bold green", $h_tmp{$s_tmp}->{desc} );
+	}
+
+	# populate keys, in order
+	my @keys = $querypkg->get_API_array( $param, 1 );
+
+	my $l = 'a';
+	for my $opt (@keys) {
+		my $l_col = str_col( "bold", "[$l]" );
+		if ($print_opt) {
+			say "  $l_col $opt (", $h_tmp{$opt}->{desc}, ")";
+		}
+		else {
+			say "  $l_col ", $h_tmp{$opt}->{desc};
+		}
+		$l++;
+	}
+
+	my $resp = <STDIN>;
+	chomp $resp;
+	if ($resp lt 'a' or $resp ge $l) {
+		# do nothing if no argument/out of range
+	}
+	else {
+		$s_tmp = $keys[ord ($resp) - ord ('a')];
+		$querypkg->set_req_params( $param, $s_tmp );
+	}
+
+	if ($print_opt) {
+		say "selected: $s_tmp (", $h_tmp{$s_tmp}->{desc}, ")";
+	}
+	else {
+		say "selected: ", $h_tmp{$s_tmp}->{desc};
+	}
+	$s_tmp;
+}
+
+sub package_name_check_and_warn {
+	# 1 - ok, 0 - not ok
+	my $arg = shift or return 0;
+	if ($querypkg->get_req_param('type') eq "path") {
+		if ($arg =~ /^\//) {
+			return 1;
+		}
+		else {
+			say STDERR "If you search by path, provide full path (starting with /).";
+			return 0;
+		}
+	}
+	else {
+		if ($arg =~ /^\//) {
+			say STDERR str_col("red","Info: "),
+				qq{provided package name begins with a slash, but "path" search },
+				qq{type is not selected.\nIf you want to search by path, specify },
+				qq{correct option.\n};
+		}
+	}
+	if ($arg =~ /^@/) {
+		if (not $querypkg->get_req_param('type') eq "set") {
+			say STDERR str_col("red","Info: "),
+				qq{package name starts with @ - assuming search type "set".\n};
+			$querypkg->set_req_params( type => 'set' );
+		}
+	}
+	1;
+}
+
+sub str_col {
+	my $col = shift or return "";
+	if ($use_colour) {
+		return color($col) . (join "",@_) . color("reset");
+	}
+	else {
+		return join "",@_;
+	}
+}
