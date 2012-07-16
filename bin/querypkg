@@ -17,20 +17,43 @@ my $quiet_mode = 0;
 my $print_details_url = 0;
 my @display_prop = (); # what properties to display; all if empty
 
-if (@ARGV) {
-	parse_cmdline(@ARGV);
-}
-else {
-	interactive_ui();
-}
+sub run {
+	if (@ARGV) {
+		parse_cmdline(@ARGV);
+	}
+	else {
+		interactive_ui();
+	}
 
-unless ($querypkg->get_data()) {
-	say STDERR "Error retrieving data: ", $querypkg->geterr();
-	exit 1;
-}
+	unless ($quiet_mode) {
+		say str_col("green", ">>  "), str_col("red", "@@ "),
+			str_col("green", "Please wait, downloading data...");
+	}
 
-while (my $data = $querypkg->next_pkg()) {
-	say $data->{atom}
+	unless ($querypkg->get_data()) {
+		say STDERR "Error: ", $querypkg->geterr();
+		exit 1;
+	}
+
+	while (my $data = $querypkg->next_pkg()) {
+		print_package_details ( $data )
+	}
+
+	unless ($quiet_mode) {
+		say str_col("green",">>")," "x2, str_col("bold blue", "Keyword:  "),
+			str_col("magenta",$querypkg->get_keyword());
+	}
+
+	if ( $querypkg->limit_reached() ) {
+		my $limit = $querypkg->server_results_limit();
+		# flush standard output so message below doesn't show in a random place
+		STDOUT->flush;
+		my $msg = "The number of items sent by the server equals the ";
+		$msg .= "server-side limit of $limit.\nIf there are more results, ";
+		$msg .= "they were omitted.";
+		say STDERR str_col("bold yellow", "\n* "),
+			$quiet_mode ? $msg : str_col("bold", $msg);
+	}
 }
 
 sub parse_cmdline {
@@ -102,6 +125,7 @@ sub parse_cmdline {
 	unless (defined $key) {
 		say STDERR "What are you looking for?";
 		$params_ok = 0;
+		$key = "";
 	}
 
 	unless ( $querypkg->get_req_param('type') eq "use" ) {
@@ -112,11 +136,14 @@ sub parse_cmdline {
 		}
 	}
 
-	my $check = $querypkg->package_name_check( $key // "" );
+	set_fix( \$key );
+	my $check = $querypkg->package_name_check( $key, undef );
 	if ($check == App::Querypkg::Core::PKG_NAME_TOO_SHORT
 			or $check == App::Querypkg::Core::PKG_NAME_TOO_LONG) {
-		say STDERR "- Search term should contain no less than three ",
+		say STDERR "- Search term should contain no less than two ",
 			"and no more than sixty four letters.";
+		say STDERR "For a set, the minimum is one character."
+			if $querypkg->get_req_param( 'type' ) eq "set";
 		exit 1;
 	}
 	elsif ($check != App::Querypkg::Core::PKG_NAME_OK) {
@@ -258,7 +285,7 @@ sub interactive_ui {
 		$fmt->( '[q]', "quit" );
 		$fmt->( '(any other)', "continue" );
 
-		$key = <STDIN>;
+		$key = <STDIN> || "";
 		chomp $key;
 		say "";
 		given ($key) {
@@ -293,7 +320,7 @@ sub interactive_ui {
 					"beginning; for example \"vote\" or \"vo\"";
 				say "arguments are comma separated, example: vote,desc";
 				print "> ";
-				$display_prop = <STDIN>;
+				$display_prop = <STDIN> || "";
 				chomp ($display_prop);
 				# "properties to print: all" means "all", so let it be the other
 				# way round too
@@ -320,18 +347,27 @@ sub interactive_ui {
 	}
 
 	while (1) {
-		my $new_key = <STDIN>;
+		my $new_key = <STDIN> || ""; # C-d handled
 		chomp $new_key;
 		# for "If it is $key, just press Enter." - pressed Enter without typing anything:
 		if (length $new_key == 0) {
 			$new_key = $key;
 			$key = "";
 		}
-		if (length $new_key < 3) {
-			say "Too short! Try again or type Ctrl+C to abort.";
-		}
-		elsif(length $new_key > 64) {
-			say "Too long! Try again or type Ctrl+C to abort.";
+
+		set_fix( \$new_key );
+		my $check = $querypkg->package_name_check( $new_key, undef );
+		if( $check != App::Querypkg::Core::PKG_NAME_OK ) {
+			if( $check == App::Querypkg::Core::PKG_NAME_TOO_SHORT ) {
+				say "Too short! Try again or type Ctrl+C to abort.";
+			}
+			elsif( $check == App::Querypkg::Core::PKG_NAME_TOO_LONG ) {
+				say "Too long! Try again or type Ctrl+C to abort.";
+			}
+			else {
+				say "Invalid package name (unknown reason; code = $check). ",
+					"Try again or type Ctrl+C to abort."
+			}
 		}
 		elsif (!package_name_check_and_warn($new_key)) {
 			say "Try again or type Ctrl+C to abort.";
@@ -376,7 +412,7 @@ sub pnt_set_opt {
 		$l++;
 	}
 
-	my $resp = <STDIN>;
+	my $resp = <STDIN> || "";
 	chomp $resp;
 	if ($resp lt 'a' or $resp ge $l) {
 		# do nothing if no argument/out of range
@@ -393,6 +429,19 @@ sub pnt_set_opt {
 		say "selected: ", $h_tmp{$s_tmp}->{desc};
 	}
 	$s_tmp;
+}
+
+sub set_fix {
+	my $key_ref = shift;
+	die "not a ref" unless ref $key_ref;
+	if ($$key_ref =~ /^@/) {
+		if (not $querypkg->get_req_param('type') eq "set") {
+			say STDERR str_col("red","Info: "),
+				qq{package name starts with @ - assuming search type "set".\n};
+			$querypkg->set_req_params( type => 'set' );
+		}
+		$$key_ref = substr $$key_ref, 1;
+	}
 }
 
 sub package_name_check_and_warn {
@@ -415,13 +464,6 @@ sub package_name_check_and_warn {
 				qq{correct option.\n};
 		}
 	}
-	if ($arg =~ /^@/) {
-		if (not $querypkg->get_req_param('type') eq "set") {
-			say STDERR str_col("red","Info: "),
-				qq{package name starts with @ - assuming search type "set".\n};
-			$querypkg->set_req_params( type => 'set' );
-		}
-	}
 	1;
 }
 
@@ -434,3 +476,221 @@ sub str_col {
 		return join "",@_;
 	}
 }
+
+sub want_this_prop {
+	if (@display_prop) {
+		my $prop = shift;
+		$prop = lc $prop;
+		for (@display_prop) {
+			return 1 if index ($prop, $_) == 0;
+		}
+		return 0;
+	}
+	return 1;
+}
+
+### subs for printing package data ###
+
+# The helper subs print without trailing newlines to support printing
+# many properties in one line (with "quiet" mode).
+
+sub pnt_spm_atom_name {
+	my $atom = shift;
+	my $quiet = shift;
+	my $spm_repo = $atom->{spm_repo} // "(unknown)";
+	my $name_ver = $atom->{atom};
+	my $str = "";
+	# example for quiet=0, foreign=1:
+	# >>      (@@ Package: dev-dotnet/gudev-sharp-0.1::gentoo)
+	if ( $quiet ) {
+		$str .= "(" if $atom->{foreign};
+		$str .= $name_ver;
+		$str .=
+			$atom->{foreign}
+			? str_col("bold red", "::")
+			: str_col("bold green", "::");
+		$str .= str_col("blue",$spm_repo);
+		$str .= ")" if $atom->{foreign};
+	}
+	else {
+		$str .= str_col("green",">>      ");
+		$str .= "(" if $atom->{foreign};
+		$str .= str_col("red","@@ Package: ");
+		$str .= $atom->{foreign} ? $name_ver : str_col("bold",$name_ver);
+		if ($atom->{foreign}) {
+			$str .= str_col("bold red", "::");
+			$str .= str_col("blue",$spm_repo);
+		}
+		$str .= ")" if $atom->{foreign};
+	}
+	print $str;
+}
+
+sub pnt_etp_pkg_name {
+	my $atom = shift;
+	my $quiet = shift;
+	if ($quiet) {
+		print $atom->{atom};
+	}
+	else {
+		print str_col("green",">>      "), str_col("bold red","@@ Package: "),
+			str_col("bold",$atom->{atom});
+	}
+}
+
+sub pnt_atom_name {
+	my $atom = shift;
+	my %opts = @_; # booleans: quiet
+	if ($atom->{is_source}) {
+		pnt_spm_atom_name ($atom, $opts{quiet});
+	}
+	else {
+		pnt_etp_pkg_name ($atom, $opts{quiet});
+	}
+	print "\n" unless $opts{quiet};
+}
+
+sub pnt_prop {
+	my ($label, $color, $value, %opts) = @_; # %opts: quiet, want_this
+
+	return unless $opts{want_this} || want_this_prop ($label);
+
+	if( $opts{quiet} ) {
+		return unless @display_prop;
+		print str_col("cyan", " {"), $label, str_col($color, $value),
+			str_col("cyan", "}");
+	}
+	else {
+		my $len = length $label;
+		my $pad = $len > 15 ? 15 : 15 - $len;
+		say str_col("green",">>")," "x9, str_col("green",$label),
+			" "x$pad, str_col($color,$value);
+	}
+}
+
+sub pnt_prop_wrap {
+	my $label = shift;
+	return unless want_this_prop ($label);
+	my ($color, $text, %opts) = @_; # %opts: quiet
+
+	if ($opts{quiet}) {
+		return unless @display_prop;
+		print str_col("cyan", " {"), $label, str_col($color, $text),
+			str_col("cyan", "}");
+		return;
+	}
+
+	my $len = length $label;
+	my $WIDTH = 80;
+	my $pad = $len > 15 ? 15 : 15 - $len;
+
+	my $textlen = length $text;
+	# $indent = space on the beginning of a line
+	my $indent = 2 + $len + 9 + $pad;
+	#my $indenttext =  " " x $indent;
+	my $indenttext = str_col("green", ">>") . " " x ($indent - 2);
+	my $widthavail = $WIDTH - $indent;
+	my $outtext;
+	if ($textlen <= $widthavail) {
+		$outtext = str_col($color,$text);
+	}
+	else {
+		my $line = "";
+		my @lines = ();
+		my $cur_widthavail = $widthavail;
+		for my $word (split /\s/, $text) {
+			A_LABEL:
+			if (length $word < $cur_widthavail) {
+				$line .= $word . " ";
+				$cur_widthavail -= (length($word) + 1);
+			}
+			elsif (length $word == $cur_widthavail) {
+				$line .= $word . "\n";
+				push @lines, $line;
+				$line = "";
+				$cur_widthavail = $widthavail;
+			}
+			# the word length exceeds space that left
+			else {
+				# maybe it's longer than available width?
+				if (length $word > $widthavail) {
+					$line .= (substr $word, 0, $cur_widthavail) . "\n";
+					push @lines, $line;
+					$line = "";
+					$word = substr $word, $cur_widthavail;
+					$cur_widthavail = $widthavail;
+					goto A_LABEL;
+				}
+				# otherwise let's put in on a new line
+				else {
+					push @lines, ($line . "\n");
+					$line = $word . " ";
+					$cur_widthavail = $widthavail - (length ($word) + 1);
+				}
+			}
+		}
+		push @lines, $line if $line;
+		# for (@lines) { print "[$_]" };
+		# $outtext = join $indenttext,@lines;
+		$outtext = join $indenttext,(map { str_col($color,$_) } @lines);
+	}
+
+	say str_col("green",">>")," "x9, str_col("green",$label),
+			" "x$pad, $outtext; #str_col($color,$outtext);
+}
+
+sub pnt_properties {
+	my $atom = shift;
+	my $quiet = shift;
+
+	# a helper to call (or not) the right sub with parameters
+	my $pnt = sub {
+		my ($label, $col, $value, %opts) = @_;
+		return
+			if( $opts{etp_only} && $atom->{is_source} );
+		if( $opts{wrap} ) {
+			pnt_prop_wrap( $label, $col, $value, quiet => $quiet_mode );
+		}
+		else {
+			pnt_prop( $label, $col, $value, quiet => $quiet_mode );
+		}
+	};
+
+	$pnt->( "Arch:", "bold blue", $atom->{arch} );
+	$pnt->( "Revision:", "bold blue", $atom->{revision}, etp_only => 1 );
+	$pnt->( "Slot:", "bold blue", $atom->{slot} );
+	$pnt->( "Size:", "bold blue", $atom->{size}, etp_only => 1 );
+	$pnt->( "Downloads:", "bold blue", $atom->{downloads}, etp_only => 1 );
+	$pnt->( "Vote:", "bold blue", $atom->{vote}, etp_only => 1 );
+	$pnt->( "spm_repo:", "bold blue", $atom->{spm_repo} // "(null)" );
+	$pnt->( "Homepage:", "yellow", $atom->{homepage} // "(null)" );
+	$pnt->( "Description:", "magenta", $atom->{description}, wrap => 1 );
+	$pnt->( "Date:", "bold blue", $atom->{date} );
+	$pnt->( "License:", "cyan", $atom->{license} );
+	$pnt->( "Last change:", "bold blue", $atom->{change} // "N/A", wrap => 1 );
+
+	# "all" not supported
+	#$pnt->( "Repository:", "bold blue", $atom->{repository} );
+
+	if ($print_details_url) {
+		my $url = $atom->{url_details} // "(URL unknown)";
+		if ($quiet_mode) {
+			say " :: ", str_col( "yellow", $url );
+		}
+		else {
+			pnt_prop ( "Details page:", "underline", $url,
+				want_this => 1, quiet => 0 );
+		}
+	}
+}
+
+sub print_package_details {
+	my $atom = shift;
+	pnt_atom_name( $atom, quiet => $quiet_mode );
+	if( !$atom->{foreign} ) {
+		pnt_properties( $atom, quiet => $quiet_mode );
+	}
+	print "\n" if $quiet_mode;
+}
+
+run();

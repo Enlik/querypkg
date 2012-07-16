@@ -6,7 +6,6 @@ WriteMakefile(
     NAME              => 'querypkg',
     ABSTRACT          => 'Tool query packages using packages.sabayon.org',
     VERSION           => 2.000,
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
     BUILD_REQUIRES    => {
         'Test::More'      => 0
 	},

@@ -4,6 +4,5 @@ lib/App/Querypkg/Core.pm
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
-querypkg.sh
 README
 t/querypkg.t

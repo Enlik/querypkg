@@ -2,3 +2,4 @@
 ^pkgs/
 \.swp
 \.git
+querypkg.sh

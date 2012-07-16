@@ -41,8 +41,8 @@ my @h_repo = (
 	we => { API => 'sabayon-weekly',
 		desc => 'sabayon-weekly (default repository for main/official releases)' },
 	limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
-	p => { API => 'portage', desc => 'Portage (with Sabayon overlay)', source => 1 },
-	psl => { API => 'portage', desc => 'Sabayon overlay', source => 1 },
+	p => { API => 'portage', desc => 'Portage (with Sabayon overlays)', source => 1 },
+	psl => { API => 'portage', desc => 'Sabayon overlays', source => 1 },
 	pg => { API => 'portage', desc => 'Portage' , source => 1 }
 	# since number of results is limited, I think "all" is useless (and see "note" below)
 	#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' }
@@ -81,6 +81,7 @@ sub _init {
 	# misc. options
 	$self->{branch} = 5; # not used on Portage search
 	$self->{iter_pos} = undef;
+	$self->{server_results_limit} = 10;
 	# default options
 	$self->set_req_params(
 		arch  => 'amd64',
@@ -186,10 +187,7 @@ sub _seterr {
 # so this allows to generate URIs for any keyword.
 sub make_URI {
 	my $self = shift;
-	my $key = shift or croak "no arg!";
-	if ($self->get_req_param('type') eq "set") {
-		$key = substr $key, 1 if $key =~ /^@/;
-	}
+	my $key = shift or croak "No argument for make_URI!";
 	my $key_ok = uri_escape $key;
 	my $URI = "http://packages.sabayon.org/search?q=";
 	my $s_type = $self->get_req_param('type');
@@ -257,7 +255,7 @@ sub get_data {
 		return;
 	}
 
-	my $check = $self->package_name_check($self->get_keyword());
+	my $check = $self->package_name_check( $self->get_keyword(), undef );
 	unless ($check == PKG_NAME_OK) {
 		my $desc =
 			$check == PKG_NAME_TOO_LONG
@@ -269,21 +267,27 @@ sub get_data {
 		return;
 	}
 
-	my $ua = LWP::UserAgent->new;
-	my $s_type = $self->get_req_param('type');
-	$ua->timeout( $s_type eq 'path' ? 30 : 20 );
-	$ua->env_proxy;
+	if (1) {
+		my $ua = LWP::UserAgent->new;
+		my $s_type = $self->get_req_param('type');
+		$ua->timeout( $s_type eq 'path' ? 30 : 20 );
+		$ua->env_proxy;
 
-	my $resp = $ua->get($URI);
-	unless($resp->is_success) {
-		$self->_seterr( "Error fetching data: " . $resp->status_line );
-		return;
+		my $resp = $ua->get($URI);
+		unless($resp->is_success) {
+			$self->_seterr( "Error fetching data: " . $resp->status_line );
+			return;
+		}
+
+		$str = $resp->content;
+		if (!$str) {
+			$self->_seterr( "Empty or invalid response" );
+			return
+		}
 	}
-
-	$str = $resp->content;
-	if (!$str) {
-		$self->_seterr( "Empty or invalid response" );
-		return
+	else {
+		# debugging
+		$str = qx(cat w/bla);
 	}
 
 	my $j;
@@ -324,6 +328,7 @@ sub next_pkg {
 
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
+	my $repo_pref_weekly = ($s_repo eq "we" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_p = ($h_repo{$s_repo}->{source} or $s_repo eq "all") ? 1 : 0;
 
 	while (1) {
@@ -333,6 +338,7 @@ sub next_pkg {
 
 		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
+		my $repo_cur_weekly = 1 if $el->{repository_id} eq $h_repo{we}->{API};
 		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
 		my $repo_cur_foreign_p = 0; # 1 if not the "overlay" user wants
 		my %meta_items = ();
@@ -346,6 +352,9 @@ sub next_pkg {
 		elsif ($repo_cur_limbo) {
 			next unless $repo_pref_limbo;
 		}
+		elsif ($repo_cur_weekly) {
+			next unless $repo_pref_weekly;
+		}
 		elsif ($repo_cur_p) {
 			next unless $repo_pref_p;
 		}
@@ -354,9 +363,11 @@ sub next_pkg {
 		# considered to remove Sabayon packages from search results that
 		# do not match selected architecture
 
-		# if Sabayon repository, filter out results with different branch
-		if ($repo_cur_sl or $repo_cur_limbo) {
+		if ($repo_cur_sl or $repo_cur_limbo or $repo_cur_weekly) {
+			# if Sabayon repository, filter out results with different branch
 			next unless $el->{branch} == $branch;
+			# sometimes results from server are naughty, so:
+			next unless $el->{arch} eq $h_arch{$s_arch}->{API};
 			# let's leave this here, too
 			next if $el->{is_source_repo};
 		}
@@ -371,7 +382,8 @@ sub next_pkg {
 			# purpose of this is: make user aware "something" has been found
 			# and the list is long enough so some atoms must've been skipped! yay
 			if ($s_repo eq "psl") {
-				$repo_cur_foreign_p = 1 unless ($el->{spm_repo} eq "sabayon");
+				# Keep in mind there are two Sabayon overlays.
+				$repo_cur_foreign_p = 1 if ($el->{spm_repo} eq "gentoo");
 			}
 			elsif ($s_repo eq "pg") {
 				$repo_cur_foreign_p = 1 unless ($el->{spm_repo} eq "gentoo");
@@ -398,14 +410,14 @@ sub next_pkg {
 			is_source   => $repo_cur_p,
 			arch        => $el->{arch},
 			slot        => $el->{slot},
-			spm_repo    => $el->{spm_repo} // "(null)",
-			homepage    => $meta_items{homepage} // "(null)",
+			spm_repo    => $el->{spm_repo}, # can be undef
+			homepage    => $meta_items{homepage}, # can be undef
 			description => $el->{description},
 			date        => $el->{date},
 			license     => $el->{license},
-			change      => $el->{change} // "N/A",
+			change      => $el->{change}, # can be undef
 			repository  => $el->{repository_id},
-			url_details => $meta_items{details} // "(URL unknown)"
+			url_details => $meta_items{details} # can be undef
 		);
 
 		if ($repo_cur_p) {
@@ -423,6 +435,11 @@ sub next_pkg {
 	}
 }
 
+sub server_results_limit {
+	my $self = shift;
+	$self->{server_results_limit}
+}
+
 # Useful to print something like:
 #my $msg = "The number of items sent by the server equals the ";
 #		$msg .= "server-side limit of 10.\nIf there are more results, ";
@@ -432,17 +449,23 @@ sub limit_reached {
 	unless (defined $self->{result_counter}) {
 		croak "result_counter not set"
 	}
-	return ($self->{result_counter} == 10)
+	return ($self->{result_counter} == $self->server_results_limit)
 }
 
+# Parameters: $key (key to check) and $is_set (true - it's set, false - it's
+# not a set, undefined - get from settings).
 sub package_name_check {
 	my $self = shift;
-	my $key = shift;
+	my ($key, $is_set) = @_;
 	croak "missing argument to package_name_check"
 		unless defined $key;
 
+	$is_set //= $self->get_req_param( 'type' ) eq "set";
 	my $len = length $key;
-	if ($len < 3) {
+	# Server checks length limits with "modifiers". Right now we make only
+	# a special check for search type set.
+	$len += 1 if $is_set;
+	if ($len < 2) {
 		return PKG_NAME_TOO_SHORT
 	}
 	if ($len > 64) {
