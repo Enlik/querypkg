@@ -1,4 +1,4 @@
-package App::Querypkg::Core;
+package App::Querypkg;
 
 use warnings;
 use strict;
@@ -548,7 +548,7 @@ sub _comp {
 
 =head1 NAME
 
-App::Querypkg::Core - core modules for querypkg
+App::Querypkg - core modules for querypkg
 
 =head1 DESCRIPTION
 

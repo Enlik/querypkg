@@ -2,16 +2,16 @@ use strict;
 use warnings;
 
 use Test::More tests => 35;
-BEGIN { use_ok('App::Querypkg::Core') };
+BEGIN { use_ok('App::Querypkg') };
 
 #########################
 
 # Tests for features that don't require network access.
 
-use App::Querypkg::Core;
-my $c = App::Querypkg::Core->new;
+use App::Querypkg;
+my $c = App::Querypkg->new;
 
-ok( $c->isa('App::Querypkg::Core'), "ISA test" );
+ok( $c->isa('App::Querypkg'), "ISA test" );
 
 # Check if default arch is the expected one, even though it's not important.
 is( $c->get_req_param('arch'), 'amd64', "default arch value" );
@@ -130,21 +130,21 @@ like( $c->geterr(), qr/long/, "get_data() with too short key");
 
 is ($c->get_keyword(), 'x' x 65, "get_keyword() return value");
 
-is( $c->package_name_check( "bla bla" ), App::Querypkg::Core::PKG_NAME_OK,
+is( $c->package_name_check( "bla bla" ), App::Querypkg::PKG_NAME_OK,
 	"good package_name_check()");
 
-is( $c->package_name_check( "a", 0 ), App::Querypkg::Core::PKG_NAME_TOO_SHORT,
+is( $c->package_name_check( "a", 0 ), App::Querypkg::PKG_NAME_TOO_SHORT,
 	"package_name_check() with length = 1, not a set");
 
-is( $c->package_name_check( "a", 1 ), App::Querypkg::Core::PKG_NAME_OK,
+is( $c->package_name_check( "a", 1 ), App::Querypkg::PKG_NAME_OK,
 	"package_name_check() with length = 1, a set");
 
 $c->set_req_params( type => 'pkg' );
-is( $c->package_name_check( "a" ), App::Querypkg::Core::PKG_NAME_TOO_SHORT,
+is( $c->package_name_check( "a" ), App::Querypkg::PKG_NAME_TOO_SHORT,
 	"package_name_check() with length = 1, not a set (auto)");
 
 $c->set_req_params( type => 'set' );
-is( $c->package_name_check( "a" ), App::Querypkg::Core::PKG_NAME_OK,
+is( $c->package_name_check( "a" ), App::Querypkg::PKG_NAME_OK,
 	"package_name_check() with length = 1, a set (auto)");
 
 # requires network access

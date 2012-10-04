@@ -9,9 +9,9 @@ use strict;
 use 5.010;
 use IO::Handle;
 use Term::ANSIColor;
-use App::Querypkg::Core;
+use App::Querypkg;
 
-my $querypkg = App::Querypkg::Core->new;
+my $querypkg = App::Querypkg->new;
 my $use_colour = (-t STDOUT);
 my $quiet_mode = 0;
 my $print_details_url = 0;
@@ -138,15 +138,15 @@ sub parse_cmdline {
 
 	set_fix( \$key );
 	my $check = $querypkg->package_name_check( $key, undef );
-	if ($check == App::Querypkg::Core::PKG_NAME_TOO_SHORT
-			or $check == App::Querypkg::Core::PKG_NAME_TOO_LONG) {
+	if ($check == App::Querypkg::PKG_NAME_TOO_SHORT
+			or $check == App::Querypkg::PKG_NAME_TOO_LONG) {
 		say STDERR "- Search term should contain no less than two ",
 			"and no more than sixty four letters.";
 		say STDERR "For a set, the minimum is one character."
 			if $querypkg->get_req_param( 'type' ) eq "set";
 		exit 1;
 	}
-	elsif ($check != App::Querypkg::Core::PKG_NAME_OK) {
+	elsif ($check != App::Querypkg::PKG_NAME_OK) {
 		say STDERR "Invalid package name: unknown ($check)";
 		exit 1;
 	}
@@ -357,11 +357,11 @@ sub interactive_ui {
 
 		set_fix( \$new_key );
 		my $check = $querypkg->package_name_check( $new_key, undef );
-		if( $check != App::Querypkg::Core::PKG_NAME_OK ) {
-			if( $check == App::Querypkg::Core::PKG_NAME_TOO_SHORT ) {
+		if( $check != App::Querypkg::PKG_NAME_OK ) {
+			if( $check == App::Querypkg::PKG_NAME_TOO_SHORT ) {
 				say "Too short! Try again or type Ctrl+C to abort.";
 			}
-			elsif( $check == App::Querypkg::Core::PKG_NAME_TOO_LONG ) {
+			elsif( $check == App::Querypkg::PKG_NAME_TOO_LONG ) {
 				say "Too long! Try again or type Ctrl+C to abort.";
 			}
 			else {
