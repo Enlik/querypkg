@@ -12,6 +12,10 @@ use JSON::XS;
 # (C) 2011-2012 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
+use Exporter 'import';
+our @EXPORT_OK = qw( PKG_NAME_TOO_SHORT PKG_NAME_TOO_LONG PKG_NAME_OK );
+our %EXPORT_TAGS = ( constants => [ @EXPORT_OK ] );
+
 # note: those "API keys" mean "input" or "output" API related things
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (
