@@ -1,6 +1,10 @@
 use strict;
 use warnings;
 
+# a simple interface to packages.sabayon.org - tests
+# (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
+# license: MIT
+
 use Test::More tests => 35;
 BEGIN { use_ok('App::Querypkg') };
 
@@ -18,22 +22,22 @@ is( $c->get_req_param('arch'), 'amd64', "default arch value" );
 
 subtest "set/get request parameters test" => sub {
 	plan tests => 12;
-	for my $param qw(x86 amd64 arm) {
+	for my $param (qw(x86 amd64 arm)) {
 		$c->set_req_params(arch => $param);
 		is( $c->get_req_param('arch'), $param, "arch value ($param)" );
 	}
 
-	for my $param qw(pkg use set) {
+	for my $param (qw(pkg use set)) {
 		$c->set_req_params(type => $param);
 		is( $c->get_req_param('type'), $param, "type value ($param)" );
 	}
 
-	for my $param qw(alph vote size) {
+	for my $param (qw(alph vote size)) {
 		$c->set_req_params(order => $param);
 		is( $c->get_req_param('order'), $param, "order value ($param)" );
 	}
 
-	for my $param qw(sl p pg) {
+	for my $param (qw(sl p pg)) {
 		$c->set_req_params(repo => $param);
 		is( $c->get_req_param('repo'), $param, "repo value ($param)" );
 	}
