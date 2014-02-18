@@ -9,7 +9,7 @@ use URI::Escape;
 use JSON::XS;
 
 # a simple interface to packages.sabayon.org
-# (C) 2011-2012 by Enlik <poczta-sn at gazeta . pl>
+# (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
 use Exporter 'import';
@@ -252,7 +252,6 @@ sub _set_keyword {
 sub get_data {
 	my $self = shift;
 	my $URI = $self->get_uri();
-	my $str;
 
 	unless ($URI) {
 		$self->_seterr( "URI hasn't been defined." );
@@ -271,32 +270,12 @@ sub get_data {
 		return;
 	}
 
-	if (1) {
-		my $ua = LWP::UserAgent->new;
-		my $s_type = $self->get_req_param('type');
-		$ua->timeout( $s_type eq 'path' ? 30 : 20 );
-		$ua->env_proxy;
-
-		my $resp = $ua->get($URI);
-		unless($resp->is_success) {
-			$self->_seterr( "Error fetching data: " . $resp->status_line );
-			return;
-		}
-
-		$str = $resp->content;
-		if (!$str) {
-			$self->_seterr( "Empty or invalid response" );
-			return
-		}
-	}
-	else {
-		# debugging
-		$str = qx(cat w/bla);
-	}
+	my $json_str = $self->_fetch();
+	return unless defined $json_str;
 
 	my $j;
 	eval {
-		$j = decode_json $str;
+		$j = decode_json $json_str;
 	};
 
 	if ($@) {
@@ -310,6 +289,39 @@ sub get_data {
 	$self->{iter_pos} = 0;
 	$self->{result_counter} = 0;
 	return 1;
+}
+
+# Function that does the actual fetching of data and returns the resulting
+# JSON string. On error it is expected to set the error message and return
+# undef.
+sub _fetch {
+	my $self = shift;
+	my $URI = $self->get_uri();
+	my $str;
+
+	if (1) {
+		my $ua = LWP::UserAgent->new;
+		my $s_type = $self->get_req_param('type');
+		$ua->timeout( $s_type eq 'path' ? 30 : 20 );
+		$ua->env_proxy;
+
+		my $resp = $ua->get($URI);
+		unless($resp->is_success) {
+			$self->_seterr( "Error fetching data: " . $resp->status_line );
+			return
+		}
+
+		$str = $resp->content;
+		unless($str) {
+			$self->_seterr( "Empty response." );
+			return
+		}
+	}
+	else {
+		# debugging
+		$str = qx(cat w/bla);
+	}
+	$str;
 }
 
 ########### data processing ###########
