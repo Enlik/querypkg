@@ -5,10 +5,23 @@ use warnings;
 # (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
-use Test::More tests => 35;
+use Test::More tests => 36;
 BEGIN { use_ok('App::Querypkg') };
 
 #########################
+
+# Stubs and whatnot.
+
+{
+	package App::Querypkg::Stub::CompTest;
+	use base 'App::Querypkg';
+	our $order;
+
+	sub get_req_param {
+		die "order is unknown" unless defined $order;
+		$order
+	}
+}
 
 # Tests for features that don't require network access.
 
@@ -165,6 +178,72 @@ is( $c->_comp_size('300MB', '300MB'), 0, 'comp_size: =, MB' );
 is( $c->_comp_size('3001MB', '300MB'), 1, 'comp_size: >, MB' );
 is( $c->_comp_size('300MB', '300GB'), -1, 'comp_size: <, GB/MB' );
 is( $c->_comp_size('5GB', '5120MB'), 0, 'comp_size: =, GB/MB' );
+
+subtest "comparator tests" => sub {
+	my @order_to_test = qw(alph size vote downloads date);
+	plan tests => 1 + @order_to_test * 9;
+
+	my @sorted_atom = qw(that this zet);
+	my @sorted_size = qw(300MB 3001MB 5GB);
+	my @sorted_vote = qw(1 5 6);
+	my @sorted_downloads = (0, 99, 100);
+	my @sorted_mtime = qw(1310000000.20 1310000000.21 1320000000.20);
+
+	my @data = map {
+		{
+			atom => $sorted_atom[$_],
+			size => $sorted_size[$_],
+			ugc => {
+				vote => $sorted_vote[$_],
+				downloads => $sorted_downloads[$_]
+			},
+			mtime => $sorted_mtime[$_]
+		}
+	} (0..2);
+
+	my $c = App::Querypkg::Stub::CompTest->new;
+	ok( $c->isa('App::Querypkg'), "ISA test" );
+
+	my $test_for_order = sub {
+		my $order = shift;
+		$App::Querypkg::Stub::CompTest::order = $order;
+
+		# NOTE: for all values other than "alph" _comp() returns in reverse
+		# order
+
+		my $expectation;
+
+		# test equal
+		$expectation = 0;
+		for my $i (0..2) {
+			is( $c->_comp($data[$i], $data[$i]), $expectation,
+				"_comp: $order, =");
+		}
+
+		# test lesser than
+		$expectation = $order eq "alph" ? -1 : 1;
+		for my $i (0..1) {
+			for my $j ($i+1..2) {
+				is( $c->_comp($data[$i], $data[$j]), $expectation,
+					"_comp: $order, <");
+			}
+		}
+
+		# test greater than
+		$expectation = $order eq "alph" ? 1 : -1;
+		for my $j (0..1) {
+			for my $i ($j+1..2) {
+				is( $c->_comp($data[$i], $data[$j]), $expectation,
+					"_comp: $order, >");
+			}
+		}
+	};
+
+	for my $order (@order_to_test) {
+		$test_for_order->($order);
+	}
+
+};
 
 my @h_arch = (
 	amd64 => { API => 'amd64', desc => 'amd64' },
