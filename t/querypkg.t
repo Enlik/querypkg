@@ -56,10 +56,10 @@ subtest "set/get request parameters test" => sub {
 	}
 };
 
-$c->set_req_params(
-	arch => 'x86', type => 'match', order => 'downloads', repo => 'psl');
 subtest "params defined with one sub call" => sub {
 	plan tests => 4;
+	$c->set_req_params(
+		arch => 'x86', type => 'match', order => 'downloads', repo => 'psl');
 	is( $c->get_req_param('arch'), 'x86', "arch value" );
 	is( $c->get_req_param('type'), 'match', "type value" );
 	is( $c->get_req_param('order'), 'downloads', "order value" );
