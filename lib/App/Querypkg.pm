@@ -21,7 +21,6 @@ our %EXPORT_TAGS = ( constants => [ @EXPORT_OK ] );
 my @h_arch = (
 	amd64 => { API => 'amd64', desc => 'amd64' },
 	x86 => { API => 'x86', desc => 'x86' }
-	# "arch" if Portage selected: hard-coded in make_URI
 );
 my @h_type = (
 	pkg => { API => 'pkg', desc => 'package search' },
@@ -43,11 +42,9 @@ my @h_repo = (
 	we => { API => 'sabayon-weekly',
 		desc => 'sabayon-weekly (default repository for main/official releases)' },
 	limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
-	p => { API => 'portage', desc => 'Portage (with Sabayon overlays)', source => 1 },
-	psl => { API => 'portage', desc => 'Sabayon overlays', source => 1 },
-	pg => { API => 'portage', desc => 'Portage' , source => 1 }
 	# since number of results is limited, I think "all" is useless (and see "note" below)
-	#all => { API => undef, desc => 'sabayonlinux.org, Limbo and Portage' }
+	# fixme: check if that's still true after SPM repos is removed
+	#all => { API => undef, desc => '...' }
 );
 
 sub new {
@@ -81,7 +78,7 @@ sub _init {
 	$self->{api}->{order} = \@h_order;
 	$self->{api}->{repo}  = \@h_repo;
 	# misc. options
-	$self->{branch} = 5; # not used on Portage search
+	$self->{branch} = 5;
 	$self->{iter_pos} = undef;
 	$self->{server_results_limit} = 10;
 	# default options
@@ -204,15 +201,10 @@ sub make_URI {
 	my $s_repo = $self->get_req_param('repo');
 	my $s_arch = $self->get_req_param('arch');
 	unless ($s_repo eq "all") {
-		if ($h_repo{$s_repo}->{source}) {
-			$URI .= "&a=arch";
-		}
-		else {
-			my $branch = $self->{branch};
-			$URI .= "&a=" . $h_arch{$s_arch}->{API};
-			$URI .= "&r=" . $h_repo{$s_repo}->{API};
-			$URI .= "&b=$branch";
-		}
+		my $branch = $self->{branch};
+		$URI .= "&a=" . $h_arch{$s_arch}->{API};
+		$URI .= "&r=" . $h_repo{$s_repo}->{API};
+		$URI .= "&b=$branch";
 	}
 	# empty means "internal" sort order, not provided by the server
 	my $s_order = $self->get_req_param('order');
@@ -343,7 +335,6 @@ sub next_pkg {
 	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
 	my $repo_pref_weekly = ($s_repo eq "we" or $s_repo eq "all") ? 1 : 0;
-	my $repo_pref_p = ($h_repo{$s_repo}->{source} or $s_repo eq "all") ? 1 : 0;
 
 	while (1) {
 		my $el = $j->[ $self->{iter_pos} ];
@@ -353,8 +344,6 @@ sub next_pkg {
 		my $repo_cur_sl = 1 if $el->{repository_id} eq $h_repo{sl}->{API};
 		my $repo_cur_limbo = 1 if $el->{repository_id} eq $h_repo{limbo}->{API};
 		my $repo_cur_weekly = 1 if $el->{repository_id} eq $h_repo{we}->{API};
-		my $repo_cur_p = 1 if $el->{repository_id} eq $h_repo{p}->{API};
-		my $repo_cur_foreign_p = 0; # 1 if not the "overlay" user wants
 		my %meta_items = ();
 
 		# count also skipped
@@ -369,40 +358,15 @@ sub next_pkg {
 		elsif ($repo_cur_weekly) {
 			next unless $repo_pref_weekly;
 		}
-		elsif ($repo_cur_p) {
-			next unless $repo_pref_p;
-		}
 
 		# note: if "all" option is supported then additional check should be
 		# considered to remove Sabayon packages from search results that
 		# do not match selected architecture
 
-		if ($repo_cur_sl or $repo_cur_limbo or $repo_cur_weekly) {
-			# if Sabayon repository, filter out results with different branch
-			next unless $el->{branch} == $branch;
-			# sometimes results from server are naughty, so:
-			next unless $el->{arch} eq $h_arch{$s_arch}->{API};
-			# let's leave this here, too
-			next if $el->{is_source_repo};
-		}
-		elsif ($repo_cur_p) {
-			next unless $el->{is_source_repo};
-			# if the origin is not the one selected, don't skip it entirely
-			# instead print it differently
-			# this is the workaround: server sends limited number of results, eg.
-			# if user wants "Sabayon" atoms and server sends 2 from the overlay
-			# and 8 from Gentoo Portage, only those 2 would be printed even
-			# if more of them are on the overlay
-			# purpose of this is: make user aware "something" has been found
-			# and the list is long enough so some atoms must've been skipped! yay
-			if ($s_repo eq "psl") {
-				# Keep in mind there are two Sabayon overlays.
-				$repo_cur_foreign_p = 1 if ($el->{spm_repo} eq "gentoo");
-			}
-			elsif ($s_repo eq "pg") {
-				$repo_cur_foreign_p = 1 unless ($el->{spm_repo} eq "gentoo");
-			}
-		}
+		# filter out results with different branch
+		next unless $el->{branch} == $branch;
+		# sometimes results from server are naughty, so:
+		next unless $el->{arch} eq $h_arch{$s_arch}->{API};
 
 		for my $item (@{$el->{meta_items}}) {
 			if (!defined $item->{id}) {
@@ -421,7 +385,6 @@ sub next_pkg {
 
 		my %ret = (
 			atom        => $el->{atom},
-			is_source   => $repo_cur_p,
 			arch        => $el->{arch},
 			slot        => $el->{slot},
 			spm_repo    => $el->{spm_repo}, # can be undef
@@ -434,16 +397,10 @@ sub next_pkg {
 			url_details => $meta_items{details} # can be undef
 		);
 
-		if ($repo_cur_p) {
-			# source repository
-			$ret{foreign}  = $repo_cur_foreign_p; # from another overlay
-		}
-		else {
-			$ret{revision}  = $el->{revision};
-			$ret{size}      = $el->{size};
-			$ret{downloads} = $el->{ugc}->{downloads};
-			$ret{vote}      = $el->{ugc}->{vote};
-		}
+		$ret{revision}  = $el->{revision};
+		$ret{size}      = $el->{size};
+		$ret{downloads} = $el->{ugc}->{downloads};
+		$ret{vote}      = $el->{ugc}->{vote};
 
 		return \%ret;
 	}

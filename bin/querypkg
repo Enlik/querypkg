@@ -460,62 +460,19 @@ sub want_this_prop {
 
 ### subs for printing package data ###
 
-# The helper subs print without trailing newlines to support printing
-# many properties in one line (with "quiet" mode).
-
-sub pnt_spm_atom_name {
+sub pnt_atom_name {
 	my $atom = shift;
-	my $quiet = shift;
-	my $spm_repo = $atom->{spm_repo} // "(unknown)";
-	my $name_ver = $atom->{atom};
-	my $str = "";
-	# example for quiet=0, foreign=1:
-	# >>      (@@ Package: dev-dotnet/gudev-sharp-0.1::gentoo)
-	if ( $quiet ) {
-		$str .= "(" if $atom->{foreign};
-		$str .= $name_ver;
-		$str .=
-			$atom->{foreign}
-			? str_col("bold red", "::")
-			: str_col("bold green", "::");
-		$str .= str_col("blue",$spm_repo);
-		$str .= ")" if $atom->{foreign};
-	}
-	else {
-		$str .= str_col("green",">>      ");
-		$str .= "(" if $atom->{foreign};
-		$str .= str_col("red","@@ Package: ");
-		$str .= $atom->{foreign} ? $name_ver : str_col("bold",$name_ver);
-		if ($atom->{foreign}) {
-			$str .= str_col("bold red", "::");
-			$str .= str_col("blue",$spm_repo);
-		}
-		$str .= ")" if $atom->{foreign};
-	}
-	print $str;
-}
-
-sub pnt_etp_pkg_name {
-	my $atom = shift;
-	my $quiet = shift;
-	if ($quiet) {
+	my %opts = @_; # booleans: quiet
+	if ($opts{quiet}) {
 		print $atom->{atom};
 	}
 	else {
 		print str_col("green",">>      "), str_col("bold red","@@ Package: "),
 			str_col("bold",$atom->{atom});
 	}
-}
 
-sub pnt_atom_name {
-	my $atom = shift;
-	my %opts = @_; # booleans: quiet
-	if ($atom->{is_source}) {
-		pnt_spm_atom_name ($atom, $opts{quiet});
-	}
-	else {
-		pnt_etp_pkg_name ($atom, $opts{quiet});
-	}
+	# Print without trailing newlines to support printing many properties
+	# in one line in "quiet" mode.
 	print "\n" unless $opts{quiet};
 }
 
@@ -612,11 +569,9 @@ sub pnt_properties {
 	my $atom = shift;
 	my $quiet = shift;
 
-	# a helper to call (or not) the right sub with parameters
+	# a helper to call the right sub
 	my $pnt = sub {
 		my ($label, $col, $value, %opts) = @_;
-		return
-			if( $opts{etp_only} && $atom->{is_source} );
 		if( $opts{wrap} ) {
 			pnt_prop_wrap( $label, $col, $value, quiet => $quiet_mode );
 		}
@@ -626,11 +581,11 @@ sub pnt_properties {
 	};
 
 	$pnt->( "Arch:", "bold blue", $atom->{arch} );
-	$pnt->( "Revision:", "bold blue", $atom->{revision}, etp_only => 1 );
+	$pnt->( "Revision:", "bold blue", $atom->{revision} );
 	$pnt->( "Slot:", "bold blue", $atom->{slot} );
-	$pnt->( "Size:", "bold blue", $atom->{size}, etp_only => 1 );
-	$pnt->( "Downloads:", "bold blue", $atom->{downloads}, etp_only => 1 );
-	$pnt->( "Vote:", "bold blue", $atom->{vote}, etp_only => 1 );
+	$pnt->( "Size:", "bold blue", $atom->{size} );
+	$pnt->( "Downloads:", "bold blue", $atom->{downloads} );
+	$pnt->( "Vote:", "bold blue", $atom->{vote} );
 	$pnt->( "spm_repo:", "bold blue", $atom->{spm_repo} // "(null)" );
 	$pnt->( "Homepage:", "yellow", $atom->{homepage} // "(null)" );
 	$pnt->( "Description:", "magenta", $atom->{description}, wrap => 1 );
@@ -656,9 +611,7 @@ sub pnt_properties {
 sub print_package_details {
 	my $atom = shift;
 	pnt_atom_name( $atom, quiet => $quiet_mode );
-	if( !$atom->{foreign} ) {
-		pnt_properties( $atom, quiet => $quiet_mode );
-	}
+	pnt_properties( $atom, quiet => $quiet_mode );
 	print "\n" if $quiet_mode;
 }
 

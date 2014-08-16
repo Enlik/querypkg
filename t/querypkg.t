@@ -34,7 +34,7 @@ ok( $c->isa('App::Querypkg'), "ISA test" );
 is( $c->get_req_param('arch'), 'amd64', "default arch value" );
 
 subtest "set/get request parameters test" => sub {
-	plan tests => 11;
+	plan tests => 10;
 	for my $param (qw(x86 amd64)) {
 		$c->set_req_params(arch => $param);
 		is( $c->get_req_param('arch'), $param, "arch value ($param)" );
@@ -50,7 +50,7 @@ subtest "set/get request parameters test" => sub {
 		is( $c->get_req_param('order'), $param, "order value ($param)" );
 	}
 
-	for my $param (qw(sl p pg)) {
+	for my $param (qw(sl we)) {
 		$c->set_req_params(repo => $param);
 		is( $c->get_req_param('repo'), $param, "repo value ($param)" );
 	}
@@ -59,11 +59,11 @@ subtest "set/get request parameters test" => sub {
 subtest "params defined with one sub call" => sub {
 	plan tests => 4;
 	$c->set_req_params(
-		arch => 'x86', type => 'match', order => 'downloads', repo => 'psl');
+		arch => 'x86', type => 'match', order => 'downloads', repo => 'we');
 	is( $c->get_req_param('arch'), 'x86', "arch value" );
 	is( $c->get_req_param('type'), 'match', "type value" );
 	is( $c->get_req_param('order'), 'downloads', "order value" );
-	is( $c->get_req_param('repo'), 'psl', "repo value" );
+	is( $c->get_req_param('repo'), 'we', "repo value" );
 };
 
 ok( sub {
@@ -102,13 +102,14 @@ ok( sub {
 
 my $got;
 subtest "make_URI() related tests" => sub {
-	plan tests => 9;
+	plan tests => 10;
 	$c->set_req_params(
-		arch => 'x86', type => 'pkg', order => 'downloads', repo => 'p');
+		arch => 'x86', type => 'pkg', order => 'downloads', repo => 'we');
 	$got = $c->make_URI( "haha" );
 	like( $got, qr/\?q=haha&/, "URI: keyword ok" );
 	like( $got, qr/&t=pkg&/, "URI: type ok" );
-	like( $got, qr/&a=arch&/, "URI: arch ok" );
+	like( $got, qr/&a=x86&/, "URI: arch ok" );
+	like( $got, qr/&r=sabayon-weekly&/, "URI: repository ok" );
 	like( $got, qr/&o=downloads&/, "URI: order ok" );
 
 	$got = $c->make_URI( '@key' );
