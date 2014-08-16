@@ -26,7 +26,6 @@ my @h_arch = (
 my @h_type = (
 	pkg => { API => 'pkg', desc => 'package search' },
 	desc => { API => 'desc', desc => 'description' },
-	path => { API => '', desc => 'path', prepend => 1 },
 	use => { API => 'u:', desc => 'USE flag', prepend => 1},
 	lib => { API => 'sop:', desc => 'package that provides a library (.so)', prepend => 1 },
 	match => { API => 'match', desc => 'package matching' },
@@ -301,7 +300,7 @@ sub _fetch {
 	if (1) {
 		my $ua = LWP::UserAgent->new;
 		my $s_type = $self->get_req_param('type');
-		$ua->timeout( $s_type eq 'path' ? 30 : 20 );
+		$ua->timeout(20);
 		$ua->env_proxy;
 
 		my $resp = $ua->get($URI);

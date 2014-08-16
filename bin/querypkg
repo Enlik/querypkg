@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # a simple interface to packages.sabayon.org
-# (C) 2011-2012 by Enlik <poczta-sn at gazeta . pl>
+# (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
 use warnings;
@@ -149,11 +149,6 @@ sub parse_cmdline {
 	elsif ($check != App::Querypkg::PKG_NAME_OK) {
 		say STDERR "Invalid package name: unknown ($check)";
 		exit 1;
-	}
-
-	# additional, own checks
-	unless(package_name_check_and_warn($key)) {
-		$params_ok = 0;
 	}
 
 	unless ($params_ok) {
@@ -369,9 +364,6 @@ sub interactive_ui {
 					"Try again or type Ctrl+C to abort."
 			}
 		}
-		elsif (!package_name_check_and_warn($new_key)) {
-			say "Try again or type Ctrl+C to abort.";
-		}
 		else {
 			$key = $new_key;
 			last;
@@ -442,29 +434,6 @@ sub set_fix {
 		}
 		$$key_ref = substr $$key_ref, 1;
 	}
-}
-
-sub package_name_check_and_warn {
-	# 1 - ok, 0 - not ok
-	my $arg = shift or return 0;
-	if ($querypkg->get_req_param('type') eq "path") {
-		if ($arg =~ /^\//) {
-			return 1;
-		}
-		else {
-			say STDERR "If you search by path, provide full path (starting with /).";
-			return 0;
-		}
-	}
-	else {
-		if ($arg =~ /^\//) {
-			say STDERR str_col("red","Info: "),
-				qq{provided package name begins with a slash, but "path" search },
-				qq{type is not selected.\nIf you want to search by path, specify },
-				qq{correct option.\n};
-		}
-	}
-	1;
 }
 
 sub str_col {
