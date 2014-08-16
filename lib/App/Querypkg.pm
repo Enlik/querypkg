@@ -20,8 +20,7 @@ our %EXPORT_TAGS = ( constants => [ @EXPORT_OK ] );
 # arrays to preserve order as specified, hashes are below
 my @h_arch = (
 	amd64 => { API => 'amd64', desc => 'amd64' },
-	x86 => { API => 'x86', desc => 'x86' },
-	arm => { API => 'armv7l', desc => 'armv7l' }
+	x86 => { API => 'x86', desc => 'x86' }
 	# "arch" if Portage selected: hard-coded in make_URI
 );
 my @h_type = (

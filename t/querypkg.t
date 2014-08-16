@@ -34,8 +34,8 @@ ok( $c->isa('App::Querypkg'), "ISA test" );
 is( $c->get_req_param('arch'), 'amd64', "default arch value" );
 
 subtest "set/get request parameters test" => sub {
-	plan tests => 12;
-	for my $param (qw(x86 amd64 arm)) {
+	plan tests => 11;
+	for my $param (qw(x86 amd64)) {
 		$c->set_req_params(arch => $param);
 		is( $c->get_req_param('arch'), $param, "arch value ($param)" );
 	}
@@ -247,14 +247,13 @@ subtest "comparator tests" => sub {
 
 my @h_arch = (
 	amd64 => { API => 'amd64', desc => 'amd64' },
-	x86 => { API => 'x86', desc => 'x86' },
-	arm => { API => 'armv7l', desc => 'armv7l' }
+	x86 => { API => 'x86', desc => 'x86' }
 );
 
 is_deeply([ $c->get_API_array('arch') ], \@h_arch,
 	"get_API_array() return value" );
 
-is_deeply([ $c->get_API_array('arch', 1) ], [ qw(amd64 x86 arm) ],
+is_deeply([ $c->get_API_array('arch', 1) ], [ qw(amd64 x86) ],
 	"get_API_array() return value (opts only)" );
 
 ok( sub {
@@ -263,8 +262,8 @@ ok( sub {
 	"get_API_array: exception with bad argument"
 );
 
-$c->set_req_params( arch => 'arm', order => 'alph' );
-is_deeply( $c->get_API_sel( 'arch' ), { API => 'armv7l', desc => 'armv7l' },
+$c->set_req_params( arch => 'amd64', order => 'alph' );
+is_deeply( $c->get_API_sel( 'arch' ), { API => 'amd64', desc => 'amd64' },
 	"get_API_sel() test" );
 
 is( $c->get_API_sel( 'order' )->{desc}, "alphabetically",
