@@ -5,7 +5,7 @@ use warnings;
 # (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
-use Test::More tests => 36;
+use Test::More tests => 35;
 BEGIN { use_ok('App::Querypkg') };
 
 #########################
@@ -101,8 +101,8 @@ ok( sub {
 );
 
 my $got;
-subtest "make_URI() related tests" => sub {
-	plan tests => 10;
+subtest "make_URI() - URI tests" => sub {
+	plan tests => 13;
 	$c->set_req_params(
 		arch => 'x86', type => 'pkg', order => 'downloads', repo => 'we');
 	$got = $c->make_URI( "haha" );
@@ -111,6 +111,7 @@ subtest "make_URI() related tests" => sub {
 	like( $got, qr/&a=x86&/, "URI: arch ok" );
 	like( $got, qr/&r=sabayon-weekly&/, "URI: repository ok" );
 	like( $got, qr/&o=downloads&/, "URI: order ok" );
+	like( $got, qr/&b=5&/, "URI: branch ok" );
 
 	$got = $c->make_URI( '@key' );
 	like( $got, qr/\?q=%40key&/, "URI: keyword ok (\@keyword)" );
@@ -129,9 +130,13 @@ subtest "make_URI() related tests" => sub {
 	$c->set_req_params(order => 'date');
 	$got = $c->make_URI( 'haha' );
 	unlike( $got, qr/[?&]o=/, "URI: order ok (arg. not passed)" );
-};
 
-is( $c->get_uri, $got, "URIs are the same");
+	is( $c->get_uri, $got, "URIs are the same");
+
+	$c->set_req_params( repo => 'all' );
+	$got = $c->make_URI( "whatever" );
+	unlike( $got, qr/&r=/, "URI: repository ok (with 'all')" );
+};
 
 $c->make_URI( 'x' );
 # it can't be a set, package_name_check() tests

@@ -593,8 +593,7 @@ sub pnt_properties {
 	$pnt->( "License:", "cyan", $atom->{license} );
 	$pnt->( "Last change:", "bold blue", $atom->{change} // "N/A", wrap => 1 );
 
-	# "all" not supported
-	#$pnt->( "Repository:", "bold blue", $atom->{repository} );
+	$pnt->( "Repository:", "bold blue", $atom->{repository} );
 
 	if ($print_details_url) {
 		my $url = $atom->{url_details} // "(URL unknown)";

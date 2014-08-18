@@ -42,9 +42,7 @@ my @h_repo = (
 	we => { API => 'sabayon-weekly',
 		desc => 'sabayon-weekly (default repository for main/official releases)' },
 	limbo => { API => 'sabayon-limbo', desc => 'sabayon-limbo (Sabayon testing repository)' },
-	# since number of results is limited, I think "all" is useless (and see "note" below)
-	# fixme: check if that's still true after SPM repos is removed
-	#all => { API => undef, desc => '...' }
+	all => { API => undef, desc => 'all Sabayon repositories' }
 );
 
 sub new {
@@ -200,12 +198,13 @@ sub make_URI {
 
 	my $s_repo = $self->get_req_param('repo');
 	my $s_arch = $self->get_req_param('arch');
+	my $branch = $self->{branch};
+
+	$URI .= "&a=" . $h_arch{$s_arch}->{API};
 	unless ($s_repo eq "all") {
-		my $branch = $self->{branch};
-		$URI .= "&a=" . $h_arch{$s_arch}->{API};
 		$URI .= "&r=" . $h_repo{$s_repo}->{API};
-		$URI .= "&b=$branch";
 	}
+	$URI .= "&b=$branch";
 	# empty means "internal" sort order, not provided by the server
 	my $s_order = $self->get_req_param('order');
 	($URI .= "&o=" . $h_order{$s_order}->{API}) if $h_order{$s_order}->{API};
@@ -332,9 +331,10 @@ sub next_pkg {
 	my $s_repo  = $self->get_req_param('repo');
 	my $branch  = $self->{branch};
 
-	my $repo_pref_sl = ($s_repo eq "sl" or $s_repo eq "all") ? 1 : 0;
-	my $repo_pref_limbo = ($s_repo eq "limbo" or $s_repo eq "all") ? 1 : 0;
-	my $repo_pref_weekly = ($s_repo eq "we" or $s_repo eq "all") ? 1 : 0;
+	my $repo_pref_all = $s_repo eq "all" ? 1 : 0;
+	my $repo_pref_sl = $s_repo eq "sl" ? 1 : 0;
+	my $repo_pref_limbo = $s_repo eq "limbo" ? 1 : 0;
+	my $repo_pref_weekly = $s_repo eq "we" ? 1 : 0;
 
 	while (1) {
 		my $el = $j->[ $self->{iter_pos} ];
@@ -349,23 +349,21 @@ sub next_pkg {
 		# count also skipped
 		$self->{result_counter}++;
 
-		if ($repo_cur_sl) {
-			next unless $repo_pref_sl;
+		unless ($repo_pref_all) {
+			if ($repo_cur_sl) {
+				next unless $repo_pref_sl;
+			}
+			elsif ($repo_cur_limbo) {
+				next unless $repo_pref_limbo;
+			}
+			elsif ($repo_cur_weekly) {
+				next unless $repo_pref_weekly;
+			}
 		}
-		elsif ($repo_cur_limbo) {
-			next unless $repo_pref_limbo;
-		}
-		elsif ($repo_cur_weekly) {
-			next unless $repo_pref_weekly;
-		}
-
-		# note: if "all" option is supported then additional check should be
-		# considered to remove Sabayon packages from search results that
-		# do not match selected architecture
 
 		# filter out results with different branch
 		next unless $el->{branch} == $branch;
-		# sometimes results from server are naughty, so:
+		# make sure the architecture matches
 		next unless $el->{arch} eq $h_arch{$s_arch}->{API};
 
 		for my $item (@{$el->{meta_items}}) {
