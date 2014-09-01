@@ -395,10 +395,13 @@ sub next_pkg {
 			url_details => $meta_items{details} # can be undef
 		);
 
-		$ret{revision}  = $el->{revision};
-		$ret{size}      = $el->{size};
-		$ret{downloads} = $el->{ugc}->{downloads};
-		$ret{vote}      = $el->{ugc}->{vote};
+		$ret{key}           = $el->{key};
+		$ret{revision}      = $el->{revision};
+		$ret{size}          = $el->{size};
+		$ret{digest}        = $el->{digest};
+		$ret{download_path} = $el->{download};
+		$ret{downloads}     = $el->{ugc}->{downloads};
+		$ret{vote}          = $el->{ugc}->{vote};
 
 		return \%ret;
 	}

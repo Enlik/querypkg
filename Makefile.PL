@@ -16,6 +16,6 @@ WriteMakefile(
         'URI::Escape'     => 0,
         'JSON::XS'        => 0
     },
-    EXE_FILES         => [ 'bin/querypkg' ],
+    EXE_FILES         => [ 'bin/querypkg', 'bin/download_entropy_packages.sh' ],
     LICENSE           => 'mit',
 );

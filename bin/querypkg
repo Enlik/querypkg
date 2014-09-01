@@ -15,6 +15,7 @@ my $querypkg = App::Querypkg->new;
 my $use_colour = (-t STDOUT);
 my $quiet_mode = 0;
 my $print_details_url = 0;
+my $print_download_location = 0;
 my @display_prop = (); # what properties to display; all if empty
 
 sub run {
@@ -109,6 +110,9 @@ sub parse_cmdline {
 			when ("-u") {
 				$print_details_url = 1;
 			}
+			when ("-D") {
+				$print_download_location = 1;
+			}
 			# key
 			push @unknown_with_hyphen, $arg if $arg =~ /^-/;
 			if (defined $key) {
@@ -120,6 +124,15 @@ sub parse_cmdline {
 				$key = $arg;
 			}
 		}
+	}
+
+	if ($print_download_location) {
+		# colour options are ignored silently
+		if ( @display_prop or $quiet_mode or $print_details_url ) {
+			say STDERR "Option -D cannot be used with --show, -q or -u.";
+			$params_ok = 0;
+		}
+		$quiet_mode = 1;
 	}
 
 	unless (defined $key) {
@@ -184,20 +197,22 @@ sub display_help {
 
 	# For easy and readable string interpolation; $B{'-q'} looks quite like in POD!
 	my %B = map { $_ => str_col("bold blue", $_) }
-		qw(keyword -q --quiet -u --arch --order --type --repo --show
+		qw(keyword -q --quiet -u -D --arch --order --type --repo --show
 		--color --nocolor);
 	my $helpstr =<<END;
 	This is a Perl script to query packages using packages.sabayon.org.
 	For interactive use run this script without any parameters.
 	Usage:
 	\t<$B{'keyword'}> [$B{'-q'}|$B{'--quiet'}] [$B{'-u'}]
+	\t<$B{'keyword'}> [$B{'-D'}]
 	\t[$B{'--arch'} $arch_opts] [$B{'--order'} $order_opts]
 	\t[$B{'--type'} $type_opts] [$B{'--repo'} $repo_opts]
 	Additional options: $B{'--color'} - enable colorized output (default),_no_nl_
 	$B{'--nocolor'} - disable colorized output,_no_nl_
 	$B{'--quiet'}/$B{'-q'} - produce less output,_no_nl_
 	$B{'-u'} - print URL to get package details,_no_nl_
-	$B{'--show'} <prop[,prop2 ...]> - specify properties to show.
+	$B{'--show'} <prop[,prop2 ...]> - specify properties to show,_no_nl_
+	$B{'-D'} - only show digest and download location (usable for scripts).
 
 	example usage: $0 $B{'--arch'} x86 $B{'--order'} size pidgin
 	order does not matter: $0 pidgin $B{'--arch'} x86 $B{'--order'} size
@@ -276,6 +291,8 @@ sub interactive_ui {
 		$fmt->( 't', "quiet", $quiet_mode ? "enabled" : "disabled" );
 		$fmt->( 'u', "print URL to get package details",
 			$print_details_url ? "enabled" : "disabled" );
+		$fmt->( 'D', "print digest and dowload location",
+			$print_download_location ? "enabled" : "disabled");
 		$fmt->( 'p', "properties to print", $display_prop || "all" );
 		$fmt->( '[q]', "quit" );
 		$fmt->( '(any other)', "continue" );
@@ -308,6 +325,9 @@ sub interactive_ui {
 			}
 			when ("u") {
 				$print_details_url = !$print_details_url;
+			}
+			when ("D") {
+				$print_download_location = !$print_download_location;
 			}
 			when ("p") {
 				say "type what properties you want to print";
@@ -607,11 +627,21 @@ sub pnt_properties {
 	}
 }
 
+sub pnt_download_location {
+	my $atom = shift;
+	say join(" ", $atom->{key}, $atom->{digest}, $atom->{download_path});
+}
+
 sub print_package_details {
 	my $atom = shift;
-	pnt_atom_name( $atom, quiet => $quiet_mode );
-	pnt_properties( $atom, quiet => $quiet_mode );
-	print "\n" if $quiet_mode;
+	if ($print_download_location) {
+		pnt_download_location( $atom );
+	}
+	else {
+		pnt_atom_name( $atom, quiet => $quiet_mode );
+		pnt_properties( $atom, quiet => $quiet_mode );
+		print "\n" if $quiet_mode;
+	}
 }
 
 run();

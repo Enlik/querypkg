@@ -1,3 +1,4 @@
+bin/download_entropy_packages.sh
 bin/querypkg
 COPYING
 lib/App/Querypkg.pm
