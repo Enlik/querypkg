@@ -3,3 +3,9 @@
 \.swp
 \.git
 querypkg.sh
+
+\bMANIFEST.bak
+\bMakefile$
+\bpm_to_blib$
+\bblib/
+^MYMETA\.
