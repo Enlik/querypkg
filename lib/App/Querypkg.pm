@@ -185,30 +185,55 @@ sub _seterr {
 sub make_URI {
 	my $self = shift;
 	my $key = shift or croak "No argument for make_URI!";
-	my $key_ok = uri_escape $key;
-	my $URI = "http://packages.sabayon.org/search?q=";
-	my $s_type = $self->get_req_param('type');
-	if ($h_type{$s_type}->{prepend}) {
-		$URI .= $h_type{$s_type}->{API} . $key_ok;
-	}
-	else {
-		$URI .= $key_ok;
-		$URI .= "&t=" . $h_type{$s_type}->{API};
-	}
 
-	my $s_repo = $self->get_req_param('repo');
-	my $s_arch = $self->get_req_param('arch');
-	my $branch = $self->{branch};
-
-	$URI .= "&a=" . $h_arch{$s_arch}->{API};
-	unless ($s_repo eq "all") {
-		$URI .= "&r=" . $h_repo{$s_repo}->{API};
-	}
-	$URI .= "&b=$branch";
-	# empty means "internal" sort order, not provided by the server
+	my $key_ok  = uri_escape $key;
+	my $st_URI  = "http://packages.sabayon.org/search?q=";
+	my $s_type  = $self->get_req_param('type');
+	my $s_repo  = $self->get_req_param('repo');
+	my $s_arch  = $self->get_req_param('arch');
 	my $s_order = $self->get_req_param('order');
-	($URI .= "&o=" . $h_order{$s_order}->{API}) if $h_order{$s_order}->{API};
-	$URI .= "&render=json";
+
+	my $u_type = sub {
+		my $api = $h_type{$s_type}->{API};
+		my $api_prepend = $h_type{$s_type}->{prepend};
+		$api_prepend
+			? $api . $key_ok
+			: $key_ok . "&t=" . $api
+	};
+
+	my $u_arch = sub {
+		"&a=" . $h_arch{$s_arch}->{API}
+	};
+
+	my $u_repo = sub {
+		my $api = $h_repo{$s_repo}->{API};
+		$s_repo eq "all"
+			? "" :
+			"&r=" . $api
+	};
+
+	my $u_branch = sub {
+		"&b=" . $self->{branch}
+	};
+
+	my $u_order = sub {
+		# empty means "internal" sort order,
+		# not provided by the server
+		my $api = $h_order{$s_order}->{API};
+		$api
+			? "&o=" . $api
+			: ""
+	};
+
+	my $URI = join("",
+		$st_URI,
+		$u_type->(),
+		$u_arch->(),
+		$u_repo->(),
+		$u_branch->(),
+		$u_order->(),
+		"&render=json");
+
 	$self->_set_uri($URI);
 	$self->_set_keyword($key);
 	$URI;
