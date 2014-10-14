@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker 6.55_01;
 WriteMakefile(
     NAME              => 'querypkg',
     ABSTRACT          => 'Tool query packages using packages.sabayon.org',
-    VERSION           => 2.210,
+    VERSION           => 2.300,
     BUILD_REQUIRES    => {
         'Test::More'      => 0
 	},
