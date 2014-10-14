@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker 6.55_01;
 WriteMakefile(
     NAME              => 'querypkg',
     ABSTRACT          => 'Tool query packages using packages.sabayon.org',
-    VERSION           => 2.200,
+    VERSION           => 2.210,
     BUILD_REQUIRES    => {
         'Test::More'      => 0
 	},
@@ -14,7 +14,8 @@ WriteMakefile(
         'Carp'            => 0,
         'LWP::UserAgent'  => 0,
         'URI::Escape'     => 0,
-        'JSON::XS'        => 0
+        'JSON::XS'        => 0,
+        'List::Util'      => "1.33"
     },
     EXE_FILES         => [ 'bin/querypkg', 'bin/download_entropy_packages.sh' ],
     LICENSE           => 'mit',

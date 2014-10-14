@@ -9,6 +9,7 @@ use strict;
 use 5.010;
 use IO::Handle;
 use Term::ANSIColor;
+use List::Util 1.33;
 use App::Querypkg;
 
 my $querypkg = App::Querypkg->new;
@@ -62,57 +63,62 @@ sub parse_cmdline {
 	my @unknown_with_hyphen = ();
 	my $key;
 
+	my $in = sub {
+		my $arg = shift;
+		List::Util::any { $_ eq $arg } @_;
+	};
+
 	while (my $arg = shift) {
-		given ($arg) {
-			when(["--help", "-h"]) {
-				display_help();
-				exit 0;
+		if ($in->($arg, "--help", "-h")) {
+			display_help();
+			exit 0;
+		}
+		elsif ($in->($arg, "--arch",  "--order", "--type", "--repo")) {
+			my $param = $arg;
+			$param =~ s/^--//;
+			$arg = shift;
+			my @opts = $querypkg->get_API_array($param, 1);
+			if( $in->($arg // "", @opts) ) {
+				$querypkg->set_req_params($param => $arg);
 			}
-			when ( ["--arch",  "--order", "--type", "--repo"] ) {
-				my $param = $arg;
-				$param =~ s/^--//;
-				$arg = shift;
-				my @opts = $querypkg->get_API_array($param, 1);
-				if( $arg ~~ @opts ) {
-					$querypkg->set_req_params($param => $arg);
-				}
-				else {
-					say STDERR "Wrong parameter after --$param. Correct " ,
-						"parameters: ", (join ", ",@opts), ".";
-					$params_ok = 0;
-				}
+			else {
+				say STDERR "Wrong parameter after --$param. Correct " ,
+					"parameters: ", (join ", ",@opts), ".";
+				$params_ok = 0;
 			}
-			when ("--show") {
-				# "--show ," works as if no --show option provided
-				# we don't check for it
-				# --show invocations are cumulative (it may change)
-				$arg = shift;
-				if (defined $arg) {
-					for (split ',', $arg) {
-						push @display_prop, lc($_) if length $_;
-					}
-				}
-				else {
-					say STDERR "No option for --show provided.";
-					$params_ok = 0;
-					last;
+		}
+		elsif ($arg eq "--show") {
+			# "--show ," works as if no --show option provided
+			# we don't check for it
+			# --show invocations are cumulative (it may change)
+			$arg = shift;
+			if (defined $arg) {
+				for (split ',', $arg) {
+					push @display_prop, lc($_) if length $_;
 				}
 			}
-			when ("--color") {
-				$use_colour = 1;
+			else {
+				say STDERR "No option for --show provided.";
+				$params_ok = 0;
+				last;
 			}
-			when ("--nocolor") {
-				$use_colour = 0;
-			}
-			when (["--quiet", "-q"]) {
-				$quiet_mode = 1;
-			}
-			when ("-u") {
-				$print_details_url = 1;
-			}
-			when ("-D") {
-				$print_download_location = 1;
-			}
+		}
+		elsif ($arg eq "--color") {
+			$use_colour = 1;
+		}
+		elsif ($arg eq "--nocolor") {
+			$use_colour = 0;
+		}
+		elsif ($in->($arg, "--quiet", "-q")) {
+			$quiet_mode = 1;
+		}
+		elsif ($arg eq "-u") {
+			$print_details_url = 1;
+		}
+		elsif ($arg eq "-D") {
+			$print_download_location = 1;
+		}
+		else {
 			# key
 			push @unknown_with_hyphen, $arg if $arg =~ /^-/;
 			if (defined $key) {
@@ -300,58 +306,58 @@ sub interactive_ui {
 		$key = <STDIN> || "";
 		chomp $key;
 		say "";
-		given ($key) {
-			when ("1") {
-				say "select architecture:";
-				pnt_set_opt('arch', 0);
+
+		if ($key eq "1") {
+			say "select architecture:";
+			pnt_set_opt('arch', 0);
+		}
+		elsif ($key eq "2") {
+			say "select search type:";
+			pnt_set_opt('type', 0);
+		}
+		elsif ($key eq "3") {
+			say "select sort order:";
+			pnt_set_opt('order', 1);
+		}
+		elsif ($key eq "4") {
+			say "select repository:";
+			pnt_set_opt('repo', 0);
+		}
+		elsif ($key eq "c") {
+			$use_colour = !$use_colour;
+		}
+		elsif ($key eq "t") {
+			$quiet_mode = !$quiet_mode;
+		}
+		elsif ($key eq "u") {
+			$print_details_url = !$print_details_url;
+		}
+		elsif ($key eq "D") {
+			$print_download_location = !$print_download_location;
+		}
+		elsif ($key eq "p") {
+			say "type what properties you want to print";
+			say "arguments should match the whole property name or its ",
+				"beginning; for example \"vote\" or \"vo\"";
+			say "arguments are comma separated, example: vote,desc";
+			print "> ";
+			$display_prop = <STDIN> || "";
+			chomp ($display_prop);
+			# "properties to print: all" means "all", so let it be the other
+			# way round too
+			$display_prop = "" if $display_prop eq "all";
+			$display_prop =~ s/, /,/g;
+			@display_prop = ();
+			for (split ',', $display_prop) {
+				push @display_prop, lc($_) if length $_;
 			}
-			when ("2") {
-				say "select search type:";
-				pnt_set_opt('type', 0);
-			}
-			when ("3") {
-				say "select sort order:";
-				pnt_set_opt('order', 1);
-			}
-			when ("4") {
-				say "select repository:";
-				pnt_set_opt('repo', 0);
-			}
-			when ("c") {
-				$use_colour = !$use_colour;
-			}
-			when ("t") {
-				$quiet_mode = !$quiet_mode;
-			}
-			when ("u") {
-				$print_details_url = !$print_details_url;
-			}
-			when ("D") {
-				$print_download_location = !$print_download_location;
-			}
-			when ("p") {
-				say "type what properties you want to print";
-				say "arguments should match the whole property name or its ",
-					"beginning; for example \"vote\" or \"vo\"";
-				say "arguments are comma separated, example: vote,desc";
-				print "> ";
-				$display_prop = <STDIN> || "";
-				chomp ($display_prop);
-				# "properties to print: all" means "all", so let it be the other
-				# way round too
-				$display_prop = "" if $display_prop eq "all";
-				$display_prop =~ s/, /,/g;
-				@display_prop = ();
-				for (split ',', $display_prop) {
-					push @display_prop, lc($_) if length $_;
-				}
-				$display_prop = join ", ", @display_prop;
-			}
-			when ("q") {
-				say "Bye!";
-				exit 0;
-			}
-			# default
+			$display_prop = join ", ", @display_prop;
+		}
+		elsif ($key eq "q") {
+			say "Bye!";
+			exit 0;
+		}
+		else {
 			last;
 		}
 	}

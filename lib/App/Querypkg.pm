@@ -7,6 +7,7 @@ use Carp;
 use LWP::UserAgent;
 use URI::Escape;
 use JSON::XS;
+use List::Util 1.33;
 
 # a simple interface to packages.sabayon.org
 # (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
@@ -151,7 +152,8 @@ sub _set_req_param {
 	}
 
 	my @ok = @{ $self->{valid_params}->{$param} };
-	unless ($value ~~ @ok) {
+
+	unless (List::Util::any { $_ eq $value } @ok) {
 		croak "Unknown parameter '$value' for '$param'. Valid values: ",
 			join (", ", @ok)
 	}
@@ -395,14 +397,13 @@ sub next_pkg {
 			if (!defined $item->{id}) {
 				last;
 			}
-			given ($item->{id}) {
-				when ("details") {
-					$meta_items{details} =
-						"http://packages.sabayon.org" . $item->{url};
-				}
-				when ("homepage") {
-					$meta_items{homepage} = $item->{url};
-				}
+
+			if ($item->{id} eq "details") {
+				$meta_items{details} =
+					"http://packages.sabayon.org" . $item->{url};
+			}
+			elsif ($item->{id} eq "homepage") {
+				$meta_items{homepage} = $item->{url};
 			}
 		}
 
@@ -492,53 +493,54 @@ sub _comp_size {
 		$b_rest = $2;
 	}
 
-	given($a_rest) {
-		when ("MB") {
-			$a_num *= 1024
-		}
-		when ("GB") {
-			$a_num *= 1048576
-		}
-		default {
-			die "Unrecognized size suffix '$a_rest'"
-		}
+
+	if ($a_rest eq "MB") {
+		$a_num *= 1024
 	}
-	given($b_rest) {
-		when ("MB") {
-			$b_num *= 1024
-		}
-		when ("GB") {
-			$b_num *= 1048576
-		}
-		default {
-			die "Unrecognized size suffix '$b_rest'"
-		}
+	elsif ($a_rest eq "GB") {
+		$a_num *= 1048576
 	}
+	else {
+		die "Unrecognized size suffix '$a_rest'"
+	}
+
+	if ($b_rest eq "MB") {
+		$b_num *= 1024
+	}
+	elsif ($b_rest eq "GB") {
+		$b_num *= 1048576
+	}
+	else {
+		die "Unrecognized size suffix '$b_rest'"
+	}
+
 	return $a_num <=> $b_num;
 }
 
 sub _comp {
 	my $self = shift;
 	my ($a,$b) = @_;
-	given ($self->get_req_param('order')) {
-		# The server does not always sort for all sort options currently,
-		# so it is handled in this script (besides its own sort option).
-		when ("alph") {
-			return ($a->{atom} cmp $b->{atom});
-		}
-		when ("size") {
-			return $self->_comp_size ( $b->{size}, $a->{size} ); # desc
-		}
-		when ("vote") {
-			return ($b->{ugc}->{vote} <=> $a->{ugc}->{vote});
-		}
-		when ("downloads") {
-			return ($b->{ugc}->{downloads} <=> $a->{ugc}->{downloads});
-		}
-		when ("date") {
-			return ($b->{mtime} <=> $a->{mtime});
-		}
-		# default
+
+	# The server does not always sort for all sort options currently,
+	# so it is handled in this script (besides its own sort option).
+	my $order = $self->get_req_param('order');
+
+	if ($order eq "alph") {
+		return ($a->{atom} cmp $b->{atom});
+	}
+	elsif ($order eq "size") {
+		return $self->_comp_size ( $b->{size}, $a->{size} ); # desc
+	}
+	elsif ($order eq "vote") {
+		return ($b->{ugc}->{vote} <=> $a->{ugc}->{vote});
+	}
+	elsif ($order eq "downloads") {
+		return ($b->{ugc}->{downloads} <=> $a->{ugc}->{downloads});
+	}
+	elsif ($order eq "date") {
+		return ($b->{mtime} <=> $a->{mtime});
+	}
+	else {
 		return 0;
 	}
 }
