@@ -10,7 +10,7 @@ use JSON::XS;
 use List::Util 1.33;
 
 # a simple interface to packages.sabayon.org
-# (C) 2011-2012, 2014 by Enlik <poczta-sn at gazeta . pl>
+# (C) 2011-2012, 2014, 2017 by Enlik <poczta-sn at gazeta . pl>
 # license: MIT
 
 use Exporter 'import';
@@ -320,6 +320,7 @@ sub _fetch {
 		my $s_type = $self->get_req_param('type');
 		$ua->timeout(20);
 		$ua->env_proxy;
+		$ua->agent("querypkg");
 
 		my $resp = $ua->get($URI);
 		unless($resp->is_success) {
